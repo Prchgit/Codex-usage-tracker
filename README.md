@@ -29,13 +29,45 @@ python3 scripts/install.py
 
 The installer checks prerequisites, installs both components, handles an occupied dashboard port, and verifies the local API. The usual history address is `http://127.0.0.1:8767/`; the installer prints the actual address. Use **−** to collapse the panel to its header and **＋** to expand it. This preference survives relaunches and login. If the panel is hidden, choose **◉ Tracker → Show / hide floating usage**.
 
-MCP is **off by default**. To let an assistant query collected usage through tools:
+## Use inside Codex
+
+Install the read-only local plugin from this checkout:
+
+```sh
+python3 scripts/install_plugin.py
+```
+
+The plugin requires the Codex CLI and Python 3.10+ in addition to the base collector's prerequisites. If your default Python is older, use `--python /path/to/python3.12`. The installer creates an isolated MCP environment, prepares a private local marketplace, and installs **Codex Usage Tracker** through the Codex CLI. It starts the collector first if this is a fresh installation. For a custom runtime, supply `--runtime`; for a custom Codex profile, supply `--codex-home`. It does not enable submission hooks or request-execution tools.
+
+Open a new Codex chat after installation (restart the desktop app if the plugin does not appear). Example requests:
+
+- “Show my recent chat usage.”
+- “Show usage for the chat named …”
+- “Compare usage for … and …”
+- “Show my account limits.”
+- “Open my usage dashboard.”
+
+The plugin exposes five read-only tools: `list_usage_chats`, `get_chat_usage`, `compare_chat_usage`, `get_account_usage`, and `get_usage_dashboard`. The usage skill opens the returned dashboard link in the host's in-app browser when that capability is available. The dashboard adapts to narrow panels and supports a selected-chat link. This is an in-app browser workflow, not an injected header widget or an MCP Apps sidebar component. A chat ID must be established explicitly; the plugin never guesses “this chat” from recent activity.
+
+Tracking remains automatic in the local collector. The floating panel is optional to show through the Tracker menu. Plugin tools read the existing loopback collector API; they do not refresh credentials, generate model requests, or store prompts. Asking Codex a usage question is still an ordinary Codex interaction and may itself consume usage. Credit estimates and local-history coverage retain the limitations described below.
+
+To remove just the plugin while leaving the collector and history available:
+
+```sh
+codex plugin remove codex-usage-tracker@codex-usage-tracker-local
+```
+
+The repository includes a distributable package under `plugins/codex-usage-tracker` and a repo marketplace at `.agents/plugins/marketplace.json`. The local installer stages a copy under the runtime directory, so the installed plugin does not depend on retaining the source checkout. Re-run the plugin installer after updates.
+
+## Optional request-execution MCP
+
+The older token-budget MCP server remains separate and **off by default**. It includes request preview/execution tools (offline demo by default). It is not needed for the read-only tracker plugin:
 
 ```sh
 python3 scripts/install.py --with-mcp
 ```
 
-This optional mode also requires `uv` and the Codex CLI. It installs the Python MCP dependencies and registers `codex-usage-tracker` with Codex. Reopen the Codex chat to discover it. See [Codex MCP documentation](https://developers.openai.com/codex/mcp). The optional request-execution tools remain in offline demo mode unless separately configured for live OpenAI API use.
+This legacy mode requires `uv` and the Codex CLI and registers `codex-usage-tracker` as a standalone MCP server. Reopen the Codex chat to discover it. See [Codex MCP documentation](https://developers.openai.com/codex/mcp). Live paid API execution requires separate configuration and is never enabled by plugin installation.
 
 Submission hooks are also opt-in:
 
@@ -71,6 +103,8 @@ To update, pull the latest code and run the installer again, including any optio
 ```sh
 git pull
 python3 scripts/install.py
+# If using the Codex plugin, update its staged package too:
+python3 scripts/install_plugin.py
 ```
 
 To uninstall the tracker while retaining usage history and diagnostic logs:
@@ -79,7 +113,7 @@ To uninstall the tracker while retaining usage history and diagnostic logs:
 python3 scripts/uninstall.py
 ```
 
-Use `--dry-run` to preview the changes. For a custom installation, supply the same `--runtime` and `--codex-home` paths used during installation. The command stops and removes CUT's two LaunchAgents and installed program files, removes its owned hooks and optional MCP registration, and preserves unrelated configuration. Removing an optional MCP registration requires the Codex CLI. Usage databases and logs remain in the runtime directory for a later reinstall.
+Use `--dry-run` to preview the changes. For a custom installation, supply the same `--runtime` and `--codex-home` paths used during installation. The command stops and removes CUT's two LaunchAgents and installed program files, removes its owned hooks, optional MCP registration, and installed CUT plugin/private marketplace, and preserves unrelated configuration. Removing an optional MCP registration or the local plugin requires the Codex CLI. Usage databases and logs remain in the runtime directory for a later reinstall.
 
 ## Privacy and trial limitations
 
@@ -95,6 +129,7 @@ Python 3.10+ and `uv` are required for the full development environment:
 uv sync
 uv run python -m unittest discover -s tests -v
 uv run python tests/mcp_smoke.py
+uv run python tests/usage_mcp_smoke.py
 node tests/dashboard_smoke.cjs
 clang -fobjc-arc -fmodules native/UsagePanel.m native/ScreenDetection.m \
   -o /tmp/CodexUsagePanel-test -framework Cocoa

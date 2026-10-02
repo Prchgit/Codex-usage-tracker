@@ -3,16 +3,17 @@
 <title>Codex Usage Tracker</title>
 <style>
 body{font:15px system-ui;background:#f5f7fb;color:#17243b;margin:35px auto;padding:0 24px;max-width:1300px}h1{margin-bottom:8px}small,p{color:#5a6981}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin:25px 0}.card{background:white;padding:20px;border:1px solid #dfe5ef;border-radius:12px}.card strong{display:block;font-size:25px}.table-wrap{overflow-x:auto}table{width:100%;min-width:1050px;background:white;border-collapse:collapse}th,td{text-align:left;padding:13px;border-bottom:1px solid #e4e9f1}th{color:#5a6981}details{margin-top:25px}pre{white-space:pre-wrap;font-size:12px}#error{color:#a43f25}button{color:#165bc2;background:none;border:0;padding:0;font:inherit;text-align:left;cursor:pointer}select{padding:8px;margin:8px;border:1px solid #dfe5ef;border-radius:6px;max-width:80%}
+@media(max-width:700px){body{margin:16px auto;padding:0 12px}h1{font-size:21px}h1 small{display:block;font-size:13px;margin-top:6px}.cards{gap:8px;margin:16px 0}.card{padding:12px}.card strong{font-size:22px}table{min-width:0;font-size:12px}th,td{padding:9px 5px;overflow-wrap:anywhere}#chat{margin-left:0}#summary-table th:nth-child(2),#summary-table td:nth-child(2),#summary-table th:nth-child(3),#summary-table td:nth-child(3),#summary-table th:nth-child(4),#summary-table td:nth-child(4),#summary-table th:nth-child(5),#summary-table td:nth-child(5),#summary-table th:nth-child(7),#summary-table td:nth-child(7),#history-table th:nth-child(1),#history-table td:nth-child(1),#history-table th:nth-child(4),#history-table td:nth-child(4),#history-table th:nth-child(6),#history-table td:nth-child(6){display:none}}
 </style>
 <h1>Codex Usage Tracker <small id="account-usage">Usage unavailable</small></h1><p>Cumulative locally recorded usage · No model requests · No prompt text retained</p>
 <div class="cards"><div class="card">Recorded chats<strong id="chats">—</strong></div><div class="card">Recorded turns<strong id="turns">—</strong></div><div class="card">Recorded output tokens<strong id="output">—</strong></div><div class="card">Estimated credits · Standard<strong id="credits">—</strong></div></div>
 <p id="coverage"></p><p id="error"></p>
 <label><input id="internal" type="checkbox" onchange="update()"> Show internal approval sessions</label>
 <h2>Consumption per chat</h2><p>Token totals include every persisted turn. Credits update after a turn completes or is interrupted, holding the previous total during execution. Totals extend beyond the latest 100 records. Click a chat to view its message history.</p>
-<div class="table-wrap"><table><thead><tr><th>Chat</th><th>First recorded</th><th>Last activity</th><th>Turns</th><th>Model calls</th><th>New input</th><th>Cache</th><th>Output</th><th>Estimated credits</th></tr></thead><tbody id="summary"></tbody></table></div>
+<div class="table-wrap"><table id="summary-table"><thead><tr><th>Chat</th><th>First recorded</th><th>Last activity</th><th>Turns</th><th>Model calls</th><th>New input</th><th>Cache</th><th>Output</th><th>Estimated credits</th></tr></thead><tbody id="summary"></tbody></table></div>
 <h2>Message history</h2><label>Chat <select id="chat" onchange="update()"><option value="">All chats</option></select></label>
 <p>Latest 100 turns for the selected chat, or across all chats when none is selected. A turn may contain several model calls.</p>
-<div class="table-wrap"><table><thead><tr><th>Started</th><th>Chat / model</th><th>Status</th><th>Calls</th><th>New input</th><th>Cache</th><th>Output</th><th>Estimated credits</th></tr></thead><tbody id="rows"></tbody></table></div>
+<div class="table-wrap"><table id="history-table"><thead><tr><th>Started</th><th>Chat / model</th><th>Status</th><th>Calls</th><th>New input</th><th>Cache</th><th>Output</th><th>Estimated credits</th></tr></thead><tbody id="rows"></tbody></table></div>
 <p>Credits use published Standard-speed rates, not actual account billing. Partial totals exclude unpriced calls or unmeasured turns. Cloud sessions, unrecorded history and unsupported usage are excluded.</p>
 <details><summary>Structured report</summary><pre id="raw"></pre></details>
 <script>
@@ -24,6 +25,7 @@ function cells(body,values){const tr=document.createElement('tr');for(const valu
 const POLL_INTERVAL_MS = __POLL_INTERVAL_MS__;
 const REQUEST_TIMEOUT_MS = 4000;
 let loading = false;
+let initialThreadId = new URLSearchParams(location.search).get('thread_id');
 
 function renderTotals(chats, report) {
  renderAccountUsage(report.account_usage);
@@ -78,7 +80,7 @@ async function update() {
  const controller = new AbortController();
  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
  try {
-  const select = document.getElementById('chat'), selected = select.value;
+  const select = document.getElementById('chat'), selected = select.value || initialThreadId;
   const response = await fetch('/api/turns' + (selected ? '?thread_id=' + encodeURIComponent(selected) : ''), {signal: controller.signal});
   if (!response.ok) throw new Error('Collector returned an unsuccessful status');
   const report = await response.json();
@@ -87,7 +89,8 @@ async function update() {
   const visible = row => showInternal || (!row.is_internal && row.model !== 'codex-auto-review');
   const chats = report.chats.filter(visible);
   renderTotals(chats, report);
-  renderChats(chats, select, selected);
+  renderChats(chats, select, selected || '');
+  initialThreadId = null;
   renderHistory(report.turns.filter(visible));
   document.getElementById('raw').textContent = JSON.stringify(report, null, 2);
  } catch (error) {

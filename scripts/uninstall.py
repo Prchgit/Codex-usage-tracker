@@ -8,6 +8,7 @@ import shutil
 import subprocess
 
 from install_common import read_plist
+from plugin_common import plugin_uninstall_plan, uninstall_plugin
 from install_monitor import LABEL as COLLECTOR_LABEL
 from install_floating import LABEL as PANEL_LABEL, APP_NAME, BINARY_NAME
 from token_budget_mcp.config import runtime_directory
@@ -75,12 +76,14 @@ def main(argv=None):
             mcp = True
         elif 'not found' not in result.stderr.lower() and 'no mcp server' not in result.stderr.lower():
             raise ValueError('Cannot inspect optional MCP registration; retry after checking Codex CLI access')
+    plugin_plan = plugin_uninstall_plan(runtime, codex_home, args.codex_command)
     # Recognized installs may remove program files, but never history databases or logs.
-    programs = [runtime / APP_NAME, runtime / 'token_budget_mcp', runtime / 'clang-cache', runner, manifest] if installation else []
+    programs = [runtime / APP_NAME, runtime / 'token_budget_mcp', runtime / 'clang-cache', runner, manifest, runtime / '__pycache__', runtime / 'run_usage_mcp.py', runtime / 'mcp-venv', runtime / 'plugin-marketplace', runtime / 'plugin-installation.json'] if installation else []
     print(json.dumps({'dry_run': args.dry_run, 'launch_agents': [str(p) for p in agents],
         'program_files': [str(p) for p in programs], 'remove_mcp': mcp,
-        'remove_hooks': hooks is not None, 'history_retained': str(runtime)}))
+        'remove_hooks': hooks is not None, 'plugin': plugin_plan, 'history_retained': str(runtime)}))
     if args.dry_run: return
+    if plugin_plan: uninstall_plugin(plugin_plan, runtime, codex_home, args.codex_command)
     if mcp:
         subprocess.run([args.codex_command, 'mcp', 'remove', 'codex-usage-tracker'], check=True,
             env={**os.environ, 'CODEX_HOME': str(codex_home)})

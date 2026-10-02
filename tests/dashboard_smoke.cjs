@@ -31,6 +31,7 @@ const requests = [];
 const polls = [];
 let fail = false;
 const context = vm.createContext({
+  location: {search:'?embed=1&thread_id=chat%20%26%20one'}, URLSearchParams,
   document, Node, Option: class extends Node { constructor(label, value) { super(); this.textContent = label; this.value = value; } },
   AbortController, setTimeout, clearTimeout,
   setInterval(callback, interval) { polls.push(interval); },
@@ -43,6 +44,8 @@ const script = html.match(/<script>([\s\S]*?)<\/script>/)[1].replace('__POLL_INT
   vm.runInContext(script, context);
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(polls, [750]);
+  assert.equal(requests[0], '/api/turns?thread_id=chat%20%26%20one');
+  assert.equal(document.getElementById('chat').value, 'chat & one');
   assert.equal(document.getElementById('chats').textContent, 1);
   context.renderAccountUsage({limits: [{limit_id: 'codex', used_percent: 29}], updated_at: 'now'});
   assert.equal(document.getElementById('account-usage').textContent, '· 29% used');
