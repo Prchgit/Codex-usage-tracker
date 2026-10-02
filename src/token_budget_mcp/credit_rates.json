@@ -1,0 +1,11 @@
+{
+  "version": "2026-10-02",
+  "source": "https://learn.chatgpt.com/docs/pricing",
+  "basis": "Published Standard-speed credits per million tokens; estimated consumption, not actual account billing. Speed mode is not available in the collected usage records.",
+  "models": {
+    "gpt-6.1-sol": {"input": "50", "cached_input": "2.5", "output": "250"},
+    "gpt-6-sol": {"input": "50", "cached_input": "5", "output": "250"},
+    "gpt-6-luna": {"input": "2.5", "cached_input": "0.25", "output": "12.5"},
+    "gpt-6-astra": {"input": "250", "cached_input": "25", "output": "1250"}
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "version": "2026-10-02-standard-usd",
+  "currency": "USD",
+  "models": {
+    "gpt-4.1": {"input": "2.00", "cached_input": "0.50", "output": "8.00", "context": 1047576, "max_output": 32768, "source": "https://developers.openai.com/api/docs/models/gpt-4.1"},
+    "gpt-4.1-mini": {"input": "0.40", "cached_input": "0.10", "output": "1.60", "context": 1047576, "max_output": 32768, "source": "https://developers.openai.com/api/docs/models/gpt-4.1-mini"}
+  }
+}

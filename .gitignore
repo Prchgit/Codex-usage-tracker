@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.sqlite3*
+.env
+*.egg-info/
+*.log
+examples/observed-usage.json
+.env.*
+!.env.example
+.DS_Store
+build/
+dist/
+.pytest_cache/
+*.sqlite*
+*usage-limits*.json
+security_best_practices_report.md

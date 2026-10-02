@@ -1,0 +1,17 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "token-budget-mcp"
+version = "0.1.0"
+description = "Preview, recommend and account for model requests through MCP"
+requires-python = ">=3.10"
+dependencies = ["mcp>=1.20,<2", "openai>=2,<3"]
+
+[project.scripts]
+token-budget-mcp = "token_budget_mcp.server:main"
+token-budget-demo = "token_budget_mcp.demo:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/token_budget_mcp"]
