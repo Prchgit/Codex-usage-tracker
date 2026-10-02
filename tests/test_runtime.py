@@ -83,6 +83,15 @@ class RuntimeTests(unittest.TestCase):
         self.assertIn(b'const POLL_INTERVAL_MS = 750;', page)
         self.assertNotIn(b'__POLL_INTERVAL_MS__', page)
 
+    def test_compact_panel_route_serves_reused_ui(self):
+        monitor = Mock()
+        headers, page = request(build_handler(monitor), '/panel')
+        self.assertIn('200 OK', headers)
+        self.assertIn(b'Codex Usage Tracker', page)
+        self.assertIn(b"location.pathname==='/panel'", page)
+        monitor.reports.assert_not_called()
+        self.assertIn('403', request(build_handler(monitor), '/panel', 'attacker.example')[0])
+
     def test_scan_failure_retries_until_stop(self):
         stop = threading.Event()
         monitor = Mock()

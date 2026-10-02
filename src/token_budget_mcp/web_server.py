@@ -15,11 +15,13 @@ LOOPBACK_HOST = '127.0.0.1'
 ALLOWED_HOSTS = frozenset((LOOPBACK_HOST, 'localhost'))
 
 
-def build_handler(monitor, page=None, poll_interval=DEFAULT_POLL_INTERVAL):
+def build_handler(monitor, page=None, poll_interval=DEFAULT_POLL_INTERVAL, panel_page=None):
     positive_number(poll_interval, 'poll_interval')
     if page is None:
         page = Path(__file__).with_name('dashboard.html').read_bytes()
     page = page.replace(b'__POLL_INTERVAL_MS__', str(round(poll_interval * 1000)).encode())
+    if panel_page is None:
+        panel_page = Path(__file__).with_name('usage_panel.html').read_bytes()
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -27,13 +29,13 @@ def build_handler(monitor, page=None, poll_interval=DEFAULT_POLL_INTERVAL):
                 self.send_error(403)
                 return
             route = urlparse(self.path)
-            if route.path not in ('/', '/api/turns'):
+            if route.path not in ('/', '/panel', '/api/turns'):
                 self.send_error(404)
                 return
             is_api = route.path == '/api/turns'
             try:
                 thread_id = parse_qs(route.query).get('thread_id', [None])[0]
-                body = json.dumps(monitor.reports(thread_id=thread_id)).encode() if is_api else page
+                body = json.dumps(monitor.reports(thread_id=thread_id)).encode() if is_api else panel_page if route.path == '/panel' else page
             except (sqlite3.Error, ValueError, TypeError):
                 logger.error('Cannot build usage report; collector data may be unavailable')
                 self.send_error(503, 'Usage report temporarily unavailable')

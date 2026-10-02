@@ -143,3 +143,7 @@ Responsibilities are split between `monitor.py` (logs/storage), `usage.py` (aggr
 ### Inline CUT panel (host validation pending)
 
 In a new Codex chat, ask “Show my inline CUT panel.” The `show_usage_panel` tool returns an MCP Apps card with the original account-usage header, active-chat status, New/Cache/Out tokens, and estimated credits. Its app-only `read_usage_panel` tool refreshes every five seconds while visible; missing credits, partial coverage, and stale account snapshots remain explicit. Collapse keeps the account header visible; persistence is best effort when host storage is available. No external resources or direct browser-to-collector access are required. This is an inline card that scrolls with the chat, not a pinned header or floating layer. Tool/resource smoke tests do not prove that Codex renders the card; host rendering must be checked in a fresh chat after installation.
+
+### Fixed compact CUT view
+
+Ask “Open my compact CUT panel on the right.” The usage skill opens the collector’s `/panel` URL in Codex’s right-side browser panel. It reuses the inline card UI with five-second local refresh, account window labels, active-chat token and credit rows, and remembered collapse state. The panel stays beside the chat as the conversation scrolls. The full dashboard remains at `/`.
