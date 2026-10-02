@@ -47,7 +47,7 @@ Open a new Codex chat after installation (restart the desktop app if the plugin 
 - “Show my account limits.”
 - “Open my usage dashboard.”
 
-The plugin exposes five read-only tools: `list_usage_chats`, `get_chat_usage`, `compare_chat_usage`, `get_account_usage`, and `get_usage_dashboard`. The usage skill opens the returned dashboard link in the host's in-app browser when that capability is available. The dashboard adapts to narrow panels and supports a selected-chat link. This is an in-app browser workflow, not an injected header widget or an MCP Apps sidebar component. A chat ID must be established explicitly; the plugin never guesses “this chat” from recent activity.
+The plugin exposes read-only tools: `list_usage_chats`, `get_chat_usage`, `compare_chat_usage`, `get_account_usage`, `get_usage_dashboard`, and `show_usage_panel`, plus the app-only `read_usage_panel` refresh tool. The usage skill opens the returned dashboard link in the host's in-app browser when that capability is available. The dashboard adapts to narrow panels and supports a selected-chat link. The dashboard uses the in-app browser; the inline CUT card is an MCP Apps component with host validation pending. A chat ID must be established explicitly; the plugin never guesses “this chat” from recent activity.
 
 Tracking remains automatic in the local collector. The floating panel is optional to show through the Tracker menu. Plugin tools read the existing loopback collector API; they do not refresh credentials, generate model requests, or store prompts. Asking Codex a usage question is still an ordinary Codex interaction and may itself consume usage. Credit estimates and local-history coverage retain the limitations described below.
 
@@ -139,3 +139,7 @@ clang -fobjc-arc -fmodules native/UsagePanel.m native/ScreenDetection.m \
 Tests use synthetic fixtures and offline/mocked providers. No paid model calls are required. The existing collector was validated on macOS with local Codex records; compatibility with other versions needs testing.
 
 Responsibilities are split between `monitor.py` (logs/storage), `usage.py` (aggregation), `web_server.py` (HTTP), `monitor_cli.py` (CLI/hooks), and the native panel/foreground modules. See `AGENTS.md` for project coding rules.
+
+### Inline CUT panel (host validation pending)
+
+In a new Codex chat, ask “Show my inline CUT panel.” The `show_usage_panel` tool returns an MCP Apps card with the original account-usage header, active-chat status, New/Cache/Out tokens, and estimated credits. Its app-only `read_usage_panel` tool refreshes every five seconds while visible; missing credits, partial coverage, and stale account snapshots remain explicit. Collapse keeps the account header visible; persistence is best effort when host storage is available. No external resources or direct browser-to-collector access are required. This is an inline card that scrolls with the chat, not a pinned header or floating layer. Tool/resource smoke tests do not prove that Codex renders the card; host rendering must be checked in a fresh chat after installation.

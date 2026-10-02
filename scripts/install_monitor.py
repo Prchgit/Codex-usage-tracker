@@ -7,7 +7,7 @@ from install_common import PROJECT, activate_agent, install_arguments, read_plis
 from token_budget_mcp.config import DEFAULT_INACTIVITY_SECONDS, DEFAULT_ACCOUNT_REFRESH_INTERVAL, positive_number, parse_since
 
 LABEL = 'com.local.codex-token-monitor'
-PACKAGE_FILES = ('__init__.py', 'config.py', 'account_usage.py', 'account_refresh.py', 'core.py', 'usage.py', 'monitor.py', 'monitor_cli.py', 'web_server.py', 'usage_server.py', 'dashboard.html', 'credit_rates.json')
+PACKAGE_FILES = ('__init__.py', 'config.py', 'account_usage.py', 'account_refresh.py', 'core.py', 'usage.py', 'monitor.py', 'monitor_cli.py', 'web_server.py', 'usage_server.py', 'usage_panel.html', 'dashboard.html', 'credit_rates.json')
 HOOK_EVENTS = ('UserPromptSubmit', 'Stop', 'Interrupt')
 INTERRUPT_TIMEOUT = 3
 HOOK_TIMEOUT = 10

@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "codex-usage-tracker",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Read local Codex chat usage, compare chats, inspect account limits, and open the usage dashboard inside Codex.",
   "author": {"name": "Prchgit"},
   "repository": "https://github.com/Prchgit/Codex-usage-tracker",

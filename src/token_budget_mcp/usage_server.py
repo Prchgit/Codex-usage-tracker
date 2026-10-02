@@ -14,7 +14,8 @@ REQUEST_TIMEOUT_SECONDS = 4
 CHAT_FIELDS = ('thread_id', 'turn_id', 'chat_name', 'model', 'reasoning_effort', 'status',
     'recorded_turns', 'model_calls', 'first_recorded_at', 'last_activity_at', 'usage',
     'estimated_credits', 'known_estimated_credits', 'credit_coverage_complete',
-    'missing_usage_turns', 'unsupported_usage_turns', 'unknown_credit_calls', 'pending_turns')
+    'missing_usage_turns', 'unsupported_usage_turns', 'unknown_credit_calls', 'pending_turns',
+    'credit_priced_calls', 'usage_coverage_complete')
 TURN_FIELDS = ('turn_id', 'thread_id', 'started', 'status', 'model', 'reasoning_effort',
     'model_calls', 'usage', 'usage_coverage_complete', 'estimated_credits',
     'known_estimated_credits', 'unknown_credit_calls', 'credits_pending')
@@ -108,6 +109,31 @@ def build_server(reader):
     def result(data):
         return CallToolResult(content=[TextContent(type='text',text=json.dumps(data))], structuredContent=data)
     readonly = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+
+    panel_uri = 'ui://cut/usage-panel.html'
+
+    @server.resource(panel_uri, mime_type='text/html;profile=mcp-app',
+        meta={'ui':{'prefersBorder':False}, 'openai/ui':{'availableDisplayModes':['inline']}})
+    def usage_panel_html() -> str:
+        return Path(__file__).with_name('usage_panel.html').read_text()
+
+    def panel_data():
+        report = reader.report()
+        rows = [row for row in report.get('floating_sessions', []) if reader.visible(row)]
+        return {'sessions':[{k:row.get(k) for k in CHAT_FIELDS} for row in rows[:20]],
+            'truncated':len(rows)>20, 'account_usage':report.get('account_usage'),
+            'updated_at':report.get('updated_at'), 'coverage':report.get('coverage')}
+
+    @server.tool(annotations=readonly, meta={'ui':{'visibility':['app']}})
+    def read_usage_panel() -> CallToolResult:
+        """Refresh the compact CUT panel's local usage without remounting the UI."""
+        return result(panel_data())
+
+    @server.tool(annotations=readonly, meta={'ui':{'resourceUri':panel_uri},
+        'openai/outputTemplate':panel_uri})
+    def show_usage_panel() -> CallToolResult:
+        """Display the original CUT account header and active-chat usage as an inline live card."""
+        return result(panel_data())
 
     @server.tool(annotations=readonly)
     def list_usage_chats(query: str | None = None, limit: int = 20) -> CallToolResult:

@@ -73,6 +73,7 @@ def main(argv=None):
     if not (venv / 'bin/python').exists(): subprocess.run([python,'-m','venv',str(venv)],check=True)
     subprocess.run([str(venv / 'bin/python'),'-m','pip','install','--disable-pip-version-check','mcp>=1.20,<2'],check=True)
     shutil.copy2(PROJECT / 'src/token_budget_mcp/usage_server.py',package / 'usage_server.py')
+    shutil.copy2(PROJECT / 'src/token_budget_mcp/usage_panel.html',package / 'usage_panel.html')
     (runtime / 'run_usage_mcp.py').write_text('from token_budget_mcp.usage_server import main\nmain()\n')
     root = stage_plugin(runtime)
     subprocess.run([args.codex_command,'plugin','marketplace','add',str(root),'--json'],cwd=runtime,env=environment,check=True)
