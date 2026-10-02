@@ -30,7 +30,7 @@ def main(argv=None):
         'CFBundleName': 'Codex Usage Tracker', 'CFBundleDisplayName': 'Codex Usage Tracker',
         'CFBundlePackageType': 'APPL', 'LSUIElement': True, 'NSHighResolutionCapable': True, 'CFBundleVersion': '1'}))
     activate_agent(plist, {'Label': LABEL, 'ProgramArguments': [str(binary)], 'RunAtLoad': True,
-        'EnvironmentVariables': {'CUT_DASHBOARD_URL': f'http://127.0.0.1:{args.port}/', 'CUT_POLL_INTERVAL': str(args.poll_interval)},
+        'EnvironmentVariables': {'CODEX_USAGE_TRACKER_DASHBOARD_URL': f'http://127.0.0.1:{args.port}/', 'CODEX_USAGE_TRACKER_POLL_INTERVAL': str(args.poll_interval)},
         'StandardErrorPath': str(args.runtime / 'panel.stderr.log'),
         'StandardOutPath': str(args.runtime / 'panel.stdout.log')})
     print('Floating view installed and started: ' + str(args.runtime / APP_NAME))

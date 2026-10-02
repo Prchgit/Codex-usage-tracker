@@ -1,4 +1,4 @@
-# Codex Usage Tracker (CUT)
+# Codex Usage Tracker
 
 A local usage tracker for Codex on **macOS**. It shows recently active chats in a floating panel, keeps usage history, and displays new input, cached input, output tokens, and estimated credits per chat.
 
@@ -13,9 +13,9 @@ The panel appears while Codex or ChatGPT Work is foreground and hides when you s
    ```
 
 2. Open the cloned folder as a local project in Codex.
-3. Send **“Activate CUT”**. The project's `AGENTS.md` tells Codex how to check prerequisites, install the collector and panel, and verify activation.
+3. Send **“Activate Codex Usage Tracker”**. The project's `AGENTS.md` tells Codex how to check prerequisites, install the collector and panel, and verify activation.
 
-Opening the repository does not install anything by itself. Activation installs two user LaunchAgents and a local runtime under `~/.local/share/codex-token-monitor/`. No administrator privileges are needed for CUT itself.
+Opening the repository does not install anything by itself. Activation installs two user LaunchAgents and a local runtime under `~/.local/share/codex-token-monitor/`. No administrator privileges are needed for Codex Usage Tracker itself.
 
 **Prerequisites for this source-based trial:** macOS, Codex opened at least once, Python 3.9+, and Apple's command-line tools. If the tools are missing, run `xcode-select --install` once and complete Apple's installer. A bundled, signed installer is not included yet.
 
@@ -47,7 +47,7 @@ Open a new Codex chat after installation (restart the desktop app if the plugin 
 - “Show my account limits.”
 - “Open my usage dashboard.”
 
-The plugin exposes read-only tools: `list_usage_chats`, `get_chat_usage`, `compare_chat_usage`, `get_account_usage`, `get_usage_dashboard`, and `show_usage_panel`, plus the app-only `read_usage_panel` refresh tool. The usage skill opens the returned dashboard link in the host's in-app browser when that capability is available. The dashboard adapts to narrow panels and supports a selected-chat link. The dashboard uses the in-app browser; the inline CUT card is an MCP Apps component with host validation pending. A chat ID must be established explicitly; the plugin never guesses “this chat” from recent activity.
+The plugin exposes read-only tools: `list_usage_chats`, `get_chat_usage`, `compare_chat_usage`, `get_account_usage`, `get_usage_dashboard`, and `show_usage_panel`, plus the app-only `read_usage_panel` refresh tool. The usage skill opens the returned dashboard link in the host's in-app browser when that capability is available. The dashboard adapts to narrow panels and supports a selected-chat link. The dashboard uses the in-app browser; the inline Codex Usage Tracker card is an MCP Apps component with host validation pending. A chat ID must be established explicitly; the plugin never guesses “this chat” from recent activity.
 
 Tracking remains automatic in the local collector. The floating panel is optional to show through the Tracker menu. Plugin tools read the existing loopback collector API; they do not refresh credentials, generate model requests, or store prompts. Asking Codex a usage question is still an ordinary Codex interaction and may itself consume usage. Credit estimates and local-history coverage retain the limitations described below.
 
@@ -94,7 +94,7 @@ History shows the latest 100 turns, but per-chat totals include all persisted tu
 python3 scripts/install.py --help
 ```
 
-Use `--codex-home` for a custom Codex data location, `--runtime` for the tracker data directory, `--port` for a preferred port, `--poll-interval` for polling seconds, and `--since` for an ISO cutoff for previously unseen logs. `CODEX_HOME` and `CUT_RUNTIME_DIR` supply default paths. The installer retains existing history when run again.
+Use `--codex-home` for a custom Codex data location, `--runtime` for the tracker data directory, `--port` for a preferred port, `--poll-interval` for polling seconds, and `--since` for an ISO cutoff for previously unseen logs. `CODEX_HOME` and `CODEX_USAGE_TRACKER_RUNTIME_DIR` supply default paths. The installer retains existing history when run again.
 
 ## Update or uninstall
 
@@ -113,7 +113,7 @@ To uninstall the tracker while retaining usage history and diagnostic logs:
 python3 scripts/uninstall.py
 ```
 
-Use `--dry-run` to preview the changes. For a custom installation, supply the same `--runtime` and `--codex-home` paths used during installation. The command stops and removes CUT's two LaunchAgents and installed program files, removes its owned hooks, optional MCP registration, and installed CUT plugin/private marketplace, and preserves unrelated configuration. Removing an optional MCP registration or the local plugin requires the Codex CLI. Usage databases and logs remain in the runtime directory for a later reinstall.
+Use `--dry-run` to preview the changes. For a custom installation, supply the same `--runtime` and `--codex-home` paths used during installation. The command stops and removes Codex Usage Tracker's two LaunchAgents and installed program files, removes its owned hooks, optional MCP registration, and installed Codex Usage Tracker plugin/private marketplace, and preserves unrelated configuration. Removing an optional MCP registration or the local plugin requires the Codex CLI. Usage databases and logs remain in the runtime directory for a later reinstall.
 
 ## Privacy and trial limitations
 
@@ -140,10 +140,10 @@ Tests use synthetic fixtures and offline/mocked providers. No paid model calls a
 
 Responsibilities are split between `monitor.py` (logs/storage), `usage.py` (aggregation), `web_server.py` (HTTP), `monitor_cli.py` (CLI/hooks), and the native panel/foreground modules. See `AGENTS.md` for project coding rules.
 
-### Inline CUT panel (host validation pending)
+### Inline Codex Usage Tracker panel (host validation pending)
 
-In a new Codex chat, ask “Show my inline CUT panel.” The `show_usage_panel` tool returns an MCP Apps card with the original account-usage header, active-chat status, New/Cache/Out tokens, and estimated credits. Its app-only `read_usage_panel` tool refreshes every five seconds while visible; missing credits, partial coverage, and stale account snapshots remain explicit. Collapse keeps the account header visible; persistence is best effort when host storage is available. No external resources or direct browser-to-collector access are required. This is an inline card that scrolls with the chat, not a pinned header or floating layer. Tool/resource smoke tests do not prove that Codex renders the card; host rendering must be checked in a fresh chat after installation.
+In a new Codex chat, ask “Show my inline Codex Usage Tracker panel.” The `show_usage_panel` tool returns an MCP Apps card with the original account-usage header, active-chat status, New/Cache/Out tokens, and estimated credits. Its app-only `read_usage_panel` tool refreshes every five seconds while visible; missing credits, partial coverage, and stale account snapshots remain explicit. Collapse keeps the account header visible; persistence is best effort when host storage is available. No external resources or direct browser-to-collector access are required. This is an inline card that scrolls with the chat, not a pinned header or floating layer. Tool/resource smoke tests do not prove that Codex renders the card; host rendering must be checked in a fresh chat after installation.
 
-### Fixed compact CUT view
+### Fixed compact Codex Usage Tracker view
 
-Ask “Open my compact CUT panel on the right.” The usage skill opens the collector’s `/panel` URL in Codex’s right-side browser panel. It reuses the inline card UI with five-second local refresh, account window labels, active-chat token and credit rows, and remembered collapse state. The panel stays beside the chat as the conversation scrolls. The full dashboard remains at `/`.
+Ask “Open my compact Codex Usage Tracker panel on the right.” The usage skill opens the collector’s `/panel` URL in Codex’s right-side browser panel. It reuses the inline card UI with five-second local refresh, account window labels, active-chat token and credit rows, and remembered collapse state. The panel stays beside the chat as the conversation scrolls. The full dashboard remains at `/`.

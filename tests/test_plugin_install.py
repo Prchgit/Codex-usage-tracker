@@ -18,7 +18,7 @@ class PluginInstallTests(unittest.TestCase):
             root = stage_plugin(runtime)
             plugin = root / 'plugins/codex-usage-tracker'
             config = json.loads((plugin / 'mcp.json').read_text())
-            self.assertEqual(config['mcpServers']['usage']['env']['CUT_RUNTIME_DIR'],str(runtime))
+            self.assertEqual(config['mcpServers']['usage']['env']['CODEX_USAGE_TRACKER_RUNTIME_DIR'],str(runtime))
             launcher = plugin / config['mcpServers']['usage']['command']
             self.assertTrue(launcher.stat().st_mode & 0o111)
             self.assertTrue((plugin / 'skills/usage/SKILL.md').exists())

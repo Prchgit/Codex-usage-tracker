@@ -27,7 +27,7 @@ def positive_number(value, name):
 
 
 def runtime_directory(home=None):
-    return Path(os.environ.get('CUT_RUNTIME_DIR') or (Path(home or Path.home()) / DEFAULT_RUNTIME_RELATIVE)).expanduser()
+    return Path(os.environ.get('CODEX_USAGE_TRACKER_RUNTIME_DIR') or (Path(home or Path.home()) / DEFAULT_RUNTIME_RELATIVE)).expanduser()
 
 
 def parse_since(value):

@@ -1,4 +1,4 @@
-"""Uninstall CUT services and program files while retaining local usage history."""
+"""Uninstall Codex Usage Tracker services and program files while retaining local usage history."""
 import argparse
 import json
 import os
@@ -15,7 +15,7 @@ from token_budget_mcp.config import runtime_directory
 
 
 def remove_hooks(config, runner, project=None):
-    """Remove only CUT commands; keep unrelated entries and configuration."""
+    """Remove only Codex Usage Tracker commands; keep unrelated entries and configuration."""
     hooks = config.get('hooks', {})
     if not isinstance(hooks, dict): raise ValueError('Invalid hooks configuration')
     for event, entries in hooks.items():
@@ -100,7 +100,7 @@ def main(argv=None):
         if path.is_symlink(): path.unlink()
         elif path.is_dir(): shutil.rmtree(path)
         elif path.exists(): path.unlink()
-    print('CUT uninstalled. Usage history and diagnostic logs retained in ' + str(runtime))
+    print('Codex Usage Tracker uninstalled. Usage history and diagnostic logs retained in ' + str(runtime))
 
 
 if __name__ == '__main__':

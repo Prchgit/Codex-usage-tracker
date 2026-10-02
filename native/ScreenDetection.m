@@ -2,7 +2,7 @@
 
 // Codex and ChatGPT Work share com.openai.codex in the current desktop build.
 static NSArray<NSString *> *SupportedBundles(void) {
-    NSString *configured = NSProcessInfo.processInfo.environment[@"CUT_FOREGROUND_BUNDLES"];
+    NSString *configured = NSProcessInfo.processInfo.environment[@"CODEX_USAGE_TRACKER_FOREGROUND_BUNDLES"];
     if (configured.length) {
         NSMutableArray *bundles = [NSMutableArray new];
         for (NSString *entry in [configured componentsSeparatedByString:@","]) {

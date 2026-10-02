@@ -56,7 +56,7 @@ class SetupTests(unittest.TestCase):
         response = Mock(returncode=0, stdout=json.dumps({'transport': {'command': '/unrelated/server'}}))
         with patch('install.subprocess.run', return_value=response) as run, \
              self.assertRaisesRegex(ValueError, 'not replaced'):
-            install.check_mcp_registration(Path('/cut/server'), Path('/codex'))
+            install.check_mcp_registration(Path('/codex-usage-tracker/server'), Path('/codex'))
         self.assertEqual(run.call_count, 1)
 
     def test_busy_port_selects_an_available_port_for_fresh_install(self):

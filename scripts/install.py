@@ -20,11 +20,11 @@ READY_POLL_SECONDS = 0.25
 
 
 def check_prerequisites(codex_home, python, with_mcp):
-    if platform.system() != 'Darwin': raise ValueError('CUT currently supports macOS only')
+    if platform.system() != 'Darwin': raise ValueError('Codex Usage Tracker currently supports macOS only')
     if not python.is_file(): raise ValueError('Python is missing; install Apple command-line tools with xcode-select --install')
     if subprocess.run(['xcode-select', '-p'], capture_output=True).returncode:
         raise ValueError('Install Apple command-line tools with xcode-select --install, then retry')
-    if not codex_home.is_dir(): raise ValueError('Open Codex once before activating CUT, or supply --codex-home')
+    if not codex_home.is_dir(): raise ValueError('Open Codex once before activating Codex Usage Tracker, or supply --codex-home')
     if with_mcp and (not shutil.which('uv') or not shutil.which('codex')):
         raise ValueError('--with-mcp requires uv and the Codex CLI on PATH; default tracking does not')
 
@@ -33,7 +33,7 @@ def choose_port(preferred, runtime):
     plist = Path.home() / 'Library/LaunchAgents' / (LABEL + '.plist')
     existing = read_plist(plist)
     if existing and existing.get('WorkingDirectory') not in (str(PROJECT), str(runtime)):
-        raise ValueError('An unrelated launch agent already uses the CUT collector label')
+        raise ValueError('An unrelated launch agent already uses the Codex Usage Tracker collector label')
     with socket.socket() as probe:
         try: probe.bind(('127.0.0.1', preferred))
         except OSError:
@@ -107,7 +107,7 @@ def main(argv=None):
     if args.with_mcp: enable_mcp(args.runtime, args.codex_home)
     (args.runtime / 'installation.json').write_text(json.dumps({'port': port, 'mcp_requested': args.with_mcp,
         'hooks_requested': args.with_hooks, 'project': str(PROJECT)}, indent=2))
-    print(f'CUT is active. History: http://127.0.0.1:{port}/')
+    print(f'Codex Usage Tracker is active. History: http://127.0.0.1:{port}/')
     print('MCP enabled; reopen the Codex chat to discover tools.' if args.with_mcp else 'MCP registration unchanged (off on fresh installs). No API key or extra model requests are required.')
 
 

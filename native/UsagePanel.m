@@ -64,22 +64,22 @@ static NSString *AccountUsageText(NSDictionary *snapshot) {
 }
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
     NSDictionary *environment = NSProcessInfo.processInfo.environment;
-    NSURL *url = [NSURL URLWithString:environment[@"CUT_DASHBOARD_URL"] ?: DefaultDashboardURL];
+    NSURL *url = [NSURL URLWithString:environment[@"CODEX_USAGE_TRACKER_DASHBOARD_URL"] ?: DefaultDashboardURL];
     if (![url.scheme isEqualToString:@"http"] ||
         ![@[@"127.0.0.1", @"localhost"] containsObject:url.host] || url.user || url.password ||
         ![url.path isEqualToString:@"/"] || url.query || url.fragment) {
-        NSLog(@"Invalid CUT_DASHBOARD_URL; using default loopback dashboard");
+        NSLog(@"Invalid CODEX_USAGE_TRACKER_DASHBOARD_URL; using default loopback dashboard");
         url = [NSURL URLWithString:DefaultDashboardURL];
     }
     self.dashboardURL = url;
     self.preferences = [[NSUserDefaults alloc] initWithSuiteName:PanelPreferencesSuite];
     self.collapsed = [self.preferences boolForKey:CollapsedPreferenceKey];
-    NSString *interval = environment[@"CUT_POLL_INTERVAL"];
+    NSString *interval = environment[@"CODEX_USAGE_TRACKER_POLL_INTERVAL"];
     NSScanner *scanner = [NSScanner scannerWithString:interval ?: @""];
     double seconds;
     BOOL valid = [scanner scanDouble:&seconds] && scanner.isAtEnd && isfinite(seconds) && seconds > 0;
     self.pollInterval = valid ? seconds : DefaultPollIntervalSeconds;
-    if (interval && !valid) NSLog(@"Invalid CUT_POLL_INTERVAL; using default polling interval");
+    if (interval && !valid) NSLog(@"Invalid CODEX_USAGE_TRACKER_POLL_INTERVAL; using default polling interval");
     [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
     self.item = [NSStatusBar.systemStatusBar statusItemWithLength:NSVariableStatusItemLength];
     self.item.button.title = @"◉ Tracker";

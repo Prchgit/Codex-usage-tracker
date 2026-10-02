@@ -1,4 +1,4 @@
-"""Ownership-aware lifecycle for CUT's private local marketplace."""
+"""Ownership-aware lifecycle for Codex Usage Tracker's private local marketplace."""
 import json
 import os
 from pathlib import Path
@@ -12,7 +12,7 @@ PLUGIN_ID = PLUGIN_NAME + '@' + MARKETPLACE_NAME
 def plugin_uninstall_plan(runtime, codex_home, command):
     path = runtime / 'plugin-installation.json'
     if not path.exists(): return None
-    if not command: raise ValueError('Codex CLI is required to uninstall the CUT plugin')
+    if not command: raise ValueError('Codex CLI is required to uninstall the Codex Usage Tracker plugin')
     installation = json.loads(path.read_text())
     expected_root = runtime / 'plugin-marketplace'
     if installation.get('plugin_id') != PLUGIN_ID or Path(installation.get('marketplace_root','')).resolve() != expected_root.resolve():
@@ -23,7 +23,7 @@ def plugin_uninstall_plan(runtime, codex_home, command):
     entries = data if isinstance(data,list) else data.get('marketplaces',[])
     marketplace = next((entry for entry in entries if entry.get('name') == MARKETPLACE_NAME),None)
     if marketplace and Path(marketplace['root']).resolve() != expected_root.resolve():
-        raise ValueError('A different marketplace uses the CUT name; not removed')
+        raise ValueError('A different marketplace uses the Codex Usage Tracker name; not removed')
     result = subprocess.run([command,'plugin','list','--json'],cwd=runtime,env=environment,capture_output=True,text=True,check=True)
     plugins = json.loads(result.stdout).get('installed',[])
     installed = any(item.get('pluginId') == PLUGIN_ID for item in plugins)

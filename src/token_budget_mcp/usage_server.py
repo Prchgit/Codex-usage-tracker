@@ -56,7 +56,7 @@ class UsageReader:
                 raise ValueError('Unsupported collector report')
             return report
         except (OSError, ValueError, TypeError) as error:
-            raise ValueError('Tracker unavailable. Start the local CUT collector, then retry.') from error
+            raise ValueError('Tracker unavailable. Start the local Codex Usage Tracker collector, then retry.') from error
 
     @staticmethod
     def visible(row):
@@ -110,7 +110,7 @@ def build_server(reader):
         return CallToolResult(content=[TextContent(type='text',text=json.dumps(data))], structuredContent=data)
     readonly = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
 
-    panel_uri = 'ui://cut/usage-panel.html'
+    panel_uri = 'ui://codex-usage-tracker/usage-panel.html'
 
     @server.resource(panel_uri, mime_type='text/html;profile=mcp-app',
         meta={'ui':{'prefersBorder':False}, 'openai/ui':{'availableDisplayModes':['inline']}})
@@ -126,13 +126,13 @@ def build_server(reader):
 
     @server.tool(annotations=readonly, meta={'ui':{'visibility':['app']}})
     def read_usage_panel() -> CallToolResult:
-        """Refresh the compact CUT panel's local usage without remounting the UI."""
+        """Refresh the compact Codex Usage Tracker panel's local usage without remounting the UI."""
         return result(panel_data())
 
     @server.tool(annotations=readonly, meta={'ui':{'resourceUri':panel_uri},
         'openai/outputTemplate':panel_uri})
     def show_usage_panel() -> CallToolResult:
-        """Display the original CUT account header and active-chat usage as an inline live card."""
+        """Display the original Codex Usage Tracker account header and active-chat usage as an inline live card."""
         return result(panel_data())
 
     @server.tool(annotations=readonly)

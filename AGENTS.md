@@ -1,6 +1,6 @@
 # Project coding guidelines
 
-Apply these guidelines to every coding task in Codex Usage Tracker (CUT), including its subdirectories.
+Apply these guidelines to every coding task in Codex Usage Tracker, including its subdirectories.
 
 - **Keep code modular:** Use focused functions and modules with clear responsibilities. Reuse existing code where useful.
 - **Make options configurable:** Use function parameters, configuration files, or environment variables for values that vary. Use named constants for fixed values.
@@ -9,9 +9,9 @@ Apply these guidelines to every coding task in Codex Usage Tracker (CUT), includ
 - **Test meaningful behavior:** Cover important paths and edge cases.
 - **Keep implementation simple:** Avoid unnecessary abstractions and dependencies.
 
-## Activate CUT
+## Activate Codex Usage Tracker
 
-When a user asks to activate or install CUT from this repository:
+When a user asks to activate or install Codex Usage Tracker from this repository:
 
 1. Read `README.md` and run `python3 scripts/install.py` from the repository root. This installs the local macOS collector and floating panel and checks readiness.
 2. Default to no MCP and no submission hooks. Add `--with-mcp` or `--with-hooks` only when the user requests those features.

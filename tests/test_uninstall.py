@@ -17,7 +17,7 @@ class UninstallTests(unittest.TestCase):
         self.home = Path(self.temp.name).resolve()
         self.runtime = self.home / 'runtime'
         self.runtime.mkdir()
-        (self.runtime / 'installation.json').write_text(json.dumps({'project':'/test/cut','mcp_requested':False}))
+        (self.runtime / 'installation.json').write_text(json.dumps({'project':'/test/codex-usage-tracker','mcp_requested':False}))
         self.database = self.runtime / 'monitor.sqlite3'
         self.database.write_bytes(b'kept-history')
         (self.runtime / 'run_monitor.py').write_text('program')
@@ -83,7 +83,7 @@ class UninstallTests(unittest.TestCase):
         self.assertTrue((self.runtime / 'run_monitor.py').exists())
 
     def test_owned_optional_mcp_removed_and_unrelated_registration_rejected(self):
-        for command, owned in [('/test/cut/.venv/bin/token-budget-mcp', True),('/other/mcp',False)]:
+        for command, owned in [('/test/codex-usage-tracker/.venv/bin/token-budget-mcp', True),('/other/mcp',False)]:
             with self.subTest(command=command):
                 get = subprocess.CompletedProcess([],0,stdout=json.dumps({'transport':{'command':command}}))
                 outcomes = [get,subprocess.CompletedProcess([],0),subprocess.CompletedProcess([],0)]
@@ -93,7 +93,7 @@ class UninstallTests(unittest.TestCase):
                         self.assertEqual(run.call_args_list[1].args[0], ['codex','mcp','remove','codex-usage-tracker'])
                     else:
                         # Restore a manifest after the successful subcase.
-                        (self.runtime / 'installation.json').write_text(json.dumps({'project':'/test/cut'}))
+                        (self.runtime / 'installation.json').write_text(json.dumps({'project':'/test/codex-usage-tracker'}))
                         with self.assertRaises(ValueError): uninstall.main(self.args + ['--codex-command','codex'])
                         self.assertEqual(run.call_count,1)
 

@@ -1,4 +1,4 @@
-"""Install the local read-only CUT plugin and its isolated MCP dependencies."""
+"""Install the local read-only Codex Usage Tracker plugin and its isolated MCP dependencies."""
 import argparse
 import json
 import os
@@ -32,7 +32,7 @@ def stage_plugin(runtime):
     shutil.copytree(template,destination,dirs_exist_ok=True)
     config_path = destination / 'mcp.json'
     config = json.loads(config_path.read_text())
-    config['mcpServers']['usage']['env'] = {'CUT_RUNTIME_DIR':str(runtime)}
+    config['mcpServers']['usage']['env'] = {'CODEX_USAGE_TRACKER_RUNTIME_DIR':str(runtime)}
     config_path.write_text(json.dumps(config,indent=2) + '\n')
     marketplace = root / '.agents/plugins/marketplace.json'
     marketplace.parent.mkdir(parents=True,exist_ok=True)
@@ -82,7 +82,7 @@ def main(argv=None):
     if info.get('pluginId') != PLUGIN_ID: raise ValueError('Codex returned an unexpected plugin identity')
     (runtime / 'plugin-installation.json').write_text(json.dumps({'plugin_id':PLUGIN_ID,'marketplace':MARKETPLACE_NAME,
         'marketplace_root':str(root),'installed_path':info.get('installedPath')},indent=2) + '\n')
-    print('CUT read-only plugin installed. Open a new Codex chat to discover the tools and usage skill.')
+    print('Codex Usage Tracker read-only plugin installed. Open a new Codex chat to discover the tools and usage skill.')
     print('Local collector and floating panel remain available; no API key or generation tools are included.')
 
 

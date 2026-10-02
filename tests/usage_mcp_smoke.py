@@ -32,7 +32,7 @@ async def main(launcher=None):
                 assert all(tool.annotations.readOnlyHint and not tool.annotations.destructiveHint for tool in tools)
                 resources = (await session.list_resources()).resources
                 assert len(resources) == 1
-                resource = (await session.read_resource('ui://cut/usage-panel.html')).contents[0]
+                resource = (await session.read_resource('ui://codex-usage-tracker/usage-panel.html')).contents[0]
                 assert resource.mimeType == 'text/html;profile=mcp-app'
                 assert resource.meta['openai/ui']['availableDisplayModes'] == ['inline']
                 panel = await session.call_tool('show_usage_panel',{})
