@@ -4,10 +4,10 @@ from pathlib import Path
 import shlex
 import shutil
 from install_common import PROJECT, activate_agent, install_arguments, read_plist, run_installer, validate_options
-from token_budget_mcp.config import DEFAULT_INACTIVITY_SECONDS, positive_number, parse_since
+from token_budget_mcp.config import DEFAULT_INACTIVITY_SECONDS, DEFAULT_ACCOUNT_REFRESH_INTERVAL, positive_number, parse_since
 
 LABEL = 'com.local.codex-token-monitor'
-PACKAGE_FILES = ('__init__.py', 'config.py', 'account_usage.py', 'core.py', 'usage.py', 'monitor.py', 'monitor_cli.py', 'web_server.py', 'dashboard.html', 'credit_rates.json')
+PACKAGE_FILES = ('__init__.py', 'config.py', 'account_usage.py', 'account_refresh.py', 'core.py', 'usage.py', 'monitor.py', 'monitor_cli.py', 'web_server.py', 'dashboard.html', 'credit_rates.json')
 HOOK_EVENTS = ('UserPromptSubmit', 'Stop', 'Interrupt')
 INTERRUPT_TIMEOUT = 3
 HOOK_TIMEOUT = 10
@@ -46,12 +46,15 @@ def main(argv=None):
     parser.add_argument('--python', type=Path, default=Path('/usr/bin/python3'))
     parser.add_argument('--codex-home', type=Path, default=Path.home() / '.codex')
     parser.add_argument('--inactivity-seconds', type=float, default=DEFAULT_INACTIVITY_SECONDS)
+    parser.add_argument('--codex-command', default=shutil.which('codex'))
+    parser.add_argument('--account-refresh-interval', type=float, default=DEFAULT_ACCOUNT_REFRESH_INTERVAL)
     parser.add_argument('--with-hooks', action='store_true', help='Opt in to Codex submission hooks')
     parser.add_argument('--since', help='Optional ISO date/time cutoff for unseen logs')
     args = parser.parse_args(argv)
     validate_options(parser, args)
     try:
         positive_number(args.inactivity_seconds, 'inactivity_seconds')
+        positive_number(args.account_refresh_interval, 'account_refresh_interval')
         parse_since(args.since)
     except ValueError as error: parser.error(str(error))
     if not args.python.is_file(): raise ValueError('Python executable does not exist')
@@ -67,6 +70,8 @@ def main(argv=None):
     common_args = [str(args.python), str(runner), '--database', str(runtime / 'monitor.sqlite3'),
         '--sessions', str(args.codex_home / 'sessions'), '--port', str(args.port),
         '--poll-interval', str(args.poll_interval), '--inactivity-seconds', str(args.inactivity_seconds)]
+    common_args += ['--account-refresh-interval', str(args.account_refresh_interval)]
+    if args.codex_command: common_args += ['--codex-command', str(Path(args.codex_command).expanduser().resolve())]
     if args.since: common_args += ['--since', args.since]
     command = shlex.join(common_args + ['--hook'])
     if args.with_hooks: configure_hooks(config, command)

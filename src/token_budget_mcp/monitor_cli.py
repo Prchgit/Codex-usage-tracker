@@ -7,7 +7,7 @@ import sys
 import time
 from pathlib import Path
 from .config import (DEFAULT_PORT, DEFAULT_POLL_INTERVAL, DEFAULT_INACTIVITY_SECONDS,
-                     DEFAULT_HOOK_LOOKBACK_SECONDS, positive_number, parse_since)
+                     DEFAULT_HOOK_LOOKBACK_SECONDS, DEFAULT_ACCOUNT_REFRESH_INTERVAL, positive_number, parse_since)
 from .monitor import Monitor
 from .web_server import serve
 
@@ -22,6 +22,8 @@ def main(argv=None):
     parser.add_argument('--poll-interval',type=float,default=DEFAULT_POLL_INTERVAL)
     parser.add_argument('--inactivity-seconds',type=float,default=DEFAULT_INACTIVITY_SECONDS)
     parser.add_argument('--credit-rates')
+    parser.add_argument('--codex-command', help='Codex executable used for account-limit refresh')
+    parser.add_argument('--account-refresh-interval', type=float, default=DEFAULT_ACCOUNT_REFRESH_INTERVAL)
     parser.add_argument('--hook',action='store_true')
     parser.add_argument('--once',action='store_true')
     parser.add_argument('--repair-ownership',action='store_true')
@@ -29,6 +31,7 @@ def main(argv=None):
     try:
         positive_number(args.poll_interval, 'poll_interval')
         positive_number(args.inactivity_seconds, 'inactivity_seconds')
+        positive_number(args.account_refresh_interval, 'account_refresh_interval')
         if not 1 <= args.port <= 65535: raise ValueError('Port must be between 1 and 65535')
         since = parse_since(args.since)
     except ValueError as error:
@@ -56,7 +59,8 @@ def main(argv=None):
         elif args.once:
             monitor.scan(since)
             print(json.dumps(monitor.reports(),indent=2))
-        else: serve(monitor,args.port,since,poll_interval=args.poll_interval)
+        else: serve(monitor,args.port,since,poll_interval=args.poll_interval,
+                    codex_command=args.codex_command, account_refresh_interval=args.account_refresh_interval)
     except (OSError, sqlite3.Error, ValueError) as error:
         parser.error(f'Collector operation failed ({type(error).__name__}); check input and local file access')
     finally: monitor.close()

@@ -17,7 +17,7 @@ def percentage(value):
     return max(0, min(100, value))
 
 
-def normalize_limits(payload, now=None):
+def normalize_limits(payload, now=None, source=SOURCE, refresh_interval_seconds=None):
     if not isinstance(payload, dict): raise ValueError('Usage limits response must be an object')
     by_id = payload.get('rateLimitsByLimitId')
     buckets = by_id if isinstance(by_id, dict) and by_id else {'codex': payload.get('rateLimits')}
@@ -39,12 +39,14 @@ def normalize_limits(payload, now=None):
                 limits.append({'limit_id': identifier, 'label': name.capitalize(), 'used_percent': used,
                     'window_duration_mins': window.get('windowDurationMins'), 'resets_at': window.get('resetsAt')})
     stamp = now or datetime.now(timezone.utc)
-    return {'source': SOURCE, 'updated_at': stamp.isoformat(), 'limits': limits,
-        'auto_refresh': False, 'basis': 'Account-wide limits reported by Codex; separate from per-chat token estimates.'}
+    if refresh_interval_seconds is not None: positive_number(refresh_interval_seconds, 'refresh_interval_seconds')
+    return {'source': source, 'updated_at': stamp.isoformat(), 'limits': limits,
+        'auto_refresh': refresh_interval_seconds is not None, 'refresh_interval_seconds': refresh_interval_seconds,
+        'basis': 'Account-wide limits reported by Codex; separate from per-chat token estimates.'}
 
 
-def write_snapshot(database, payload, now=None):
-    snapshot = normalize_limits(payload, now)
+def write_snapshot(database, payload, now=None, source=SOURCE, refresh_interval_seconds=None):
+    snapshot = normalize_limits(payload, now, source, refresh_interval_seconds)
     with closing(sqlite3.connect(str(database))) as db, db:
         db.execute('CREATE TABLE IF NOT EXISTS account_usage_snapshot(id INTEGER PRIMARY KEY CHECK(id=1), body TEXT NOT NULL)')
         db.execute('INSERT OR REPLACE INTO account_usage_snapshot VALUES (1, ?)', (json.dumps(snapshot),))

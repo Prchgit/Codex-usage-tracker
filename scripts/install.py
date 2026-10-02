@@ -81,6 +81,7 @@ def main(argv=None):
     parser = install_arguments(__doc__)
     parser.add_argument('--python', type=Path, default=Path('/usr/bin/python3'))
     parser.add_argument('--codex-home', type=Path, default=Path(os.environ.get('CODEX_HOME') or Path.home() / '.codex'))
+    parser.add_argument('--codex-command', help='Codex executable for automatic account-limit refresh')
     parser.add_argument('--with-mcp', action='store_true', help='Register optional MCP tools in Codex (off by default)')
     parser.add_argument('--with-hooks', action='store_true', help='Add optional submission hooks; requires Codex trust')
     parser.add_argument('--since', help='Optional ISO date/time cutoff for previously unseen logs')
@@ -97,6 +98,7 @@ def main(argv=None):
     args.runtime.chmod(0o700)
     common = ['--runtime', str(args.runtime), '--port', str(port), '--poll-interval', str(args.poll_interval)]
     collector = common + ['--python', str(args.python), '--codex-home', str(args.codex_home)]
+    if args.codex_command: collector += ['--codex-command', args.codex_command]
     if args.with_hooks: collector += ['--with-hooks']
     if args.since: collector += ['--since', args.since]
     install_collector(collector)

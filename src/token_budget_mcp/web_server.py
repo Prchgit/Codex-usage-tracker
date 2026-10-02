@@ -7,6 +7,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from .config import DEFAULT_PORT, DEFAULT_POLL_INTERVAL, positive_number
+from .config import DEFAULT_ACCOUNT_REFRESH_INTERVAL
+from .account_refresh import find_codex, refresh_until_stopped
 
 logger = logging.getLogger(__name__)
 LOOPBACK_HOST = '127.0.0.1'
@@ -63,8 +65,10 @@ def collect_until_stopped(monitor, since, stop, poll_interval):
         stop.wait(poll_interval)
 
 
-def serve(monitor, port=DEFAULT_PORT, since=0, poll_interval=DEFAULT_POLL_INTERVAL):
+def serve(monitor, port=DEFAULT_PORT, since=0, poll_interval=DEFAULT_POLL_INTERVAL,
+          codex_command=None, account_refresh_interval=DEFAULT_ACCOUNT_REFRESH_INTERVAL):
     positive_number(poll_interval, 'poll_interval')
+    positive_number(account_refresh_interval, 'account_refresh_interval')
     if type(port) is not int or not 1 <= port <= 65535:
         raise ValueError('Port must be between 1 and 65535')
     stop = threading.Event()
@@ -73,8 +77,17 @@ def serve(monitor, port=DEFAULT_PORT, since=0, poll_interval=DEFAULT_POLL_INTERV
         worker = threading.Thread(target=collect_until_stopped,
             args=(monitor, since, stop, poll_interval), daemon=True)
         worker.start()
+        command = find_codex(codex_command)
+        account_worker = None
+        if command:
+            account_worker = threading.Thread(target=refresh_until_stopped,
+                args=(monitor.database, monitor.sessions.parent, command, stop, account_refresh_interval), daemon=True)
+            account_worker.start()
+        else:
+            logger.warning('Codex executable unavailable; account limits cannot refresh automatically')
         try:
             server.serve_forever()
         finally:
             stop.set()
             worker.join()
+            if account_worker: account_worker.join()

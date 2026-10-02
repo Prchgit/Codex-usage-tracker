@@ -52,7 +52,7 @@ Review and trust these hooks in Codex before using them. Collection works withou
 - **Out:** recorded output tokens. Reasoning tokens are a subset, not added twice.
 - **Credits:** cumulative estimates using the versioned Standard-speed rates in `credit_rates.json`. They update after a turn completes or is interrupted.
 - **Partial:** some locally observed calls or turns could not be measured or priced. Unknown model rates are never guessed.
-- **Overall % used:** optional account-limit snapshot from Codex's built-in `get_usage_limits` tool. Fresh installs show unavailable until fetched. It is not refreshed automatically; readings become stale after 15 minutes. See [account usage](docs/account-usage.md).
+- **Overall % used:** account limits refresh automatically every 60 seconds through the signed-in Codex CLI. No model turn or API key is required. If the CLI or sign-in is unavailable, the last successful value remains visible and becomes stale after two minutes. See [account usage](docs/account-usage.md).
 
 History shows the latest 100 turns, but per-chat totals include all persisted turns. One turn may include multiple model calls and steered messages. Collection depends on Codex's local log format; remote/cloud activity and sessions without compatible local records are not covered. Showing the panel in Work does not guarantee that every Work request is measured.
 
@@ -86,7 +86,7 @@ To prevent them returning at login, remove only those two CUT plist files. If yo
 
 The collector stores usage metadata rather than prompt text. Chat titles are read from local Codex metadata, and panel diagnostics can contain titles. The combined installer restricts the runtime directory to its owner. The dashboard binds only to loopback, but its local API does not yet authenticate callers: other local processes can access usage metadata. Use this trial on a trusted personal machine.
 
-No databases, account snapshots, logs, credentials, or local conversation records are included in this repository. Optional request-execution tools store supplied prompts and responses in their own local database. Windows/Linux installers, bundled runtimes, signing/notarization, and automatic account-limit refresh remain future work.
+No databases, account snapshots, logs, credentials, or local conversation records are included in this repository. Optional request-execution tools store supplied prompts and responses in their own local database. Windows/Linux installers, bundled runtimes, and signing/notarization remain future work.
 
 ## Development and verification
 

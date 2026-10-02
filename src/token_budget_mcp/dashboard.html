@@ -43,7 +43,7 @@ function renderAccountUsage(snapshot) {
  const limits = (codex.length ? codex : available).filter(limit => Number.isFinite(limit.used_percent));
  const values = limits.map(limit => (limits.length > 1 ? limit.label + ' ' : '') + Math.round(limit.used_percent) + '%');
  label.textContent = values.length ? '· ' + values.join(' · ') + ' used' + (snapshot.stale ? ' (stale)' : '') : 'Usage unavailable';
- label.title = 'Account-wide usage from Codex get_usage_limits. Fetched: ' + (snapshot?.updated_at || 'not yet fetched') + '. Cached snapshot; automatic refresh unavailable. Separate from per-chat credits.';
+ label.title = 'Account-wide Codex usage. Updated: ' + (snapshot?.updated_at || 'unavailable') + (snapshot?.auto_refresh ? '. Automatic refresh every ' + snapshot.refresh_interval_seconds + ' seconds.' : '. Manual snapshot; automatic refresh unavailable.') + ' Separate from per-chat credits.';
 }
 
 function renderChats(chats, select, selected) {

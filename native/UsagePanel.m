@@ -158,7 +158,10 @@ static NSString *AccountUsageText(NSDictionary *snapshot) {
     NSString *heading = [@"Codex Usage Tracker · " stringByAppendingString:AccountUsageText(self.accountUsage)];
     NSTextField *title = [self label:13 weight:NSFontWeightSemibold color:NSColor.labelColor frame:NSMakeRect(18,height-33,270,18) view:view];
     title.stringValue = heading;
-    title.toolTip = [NSString stringWithFormat:@"Account-wide usage from Codex get_usage_limits. Fetched: %@. Cached snapshot; automatic refresh unavailable. Separate from per-chat estimated credits.", self.accountUsage[@"updated_at"] ?: @"not yet fetched"];
+    NSString *refresh = [self.accountUsage[@"auto_refresh"] boolValue]
+        ? [NSString stringWithFormat:@"Automatic refresh every %@ seconds.", self.accountUsage[@"refresh_interval_seconds"]]
+        : @"Manual snapshot; automatic refresh unavailable.";
+    title.toolTip = [NSString stringWithFormat:@"Account-wide Codex usage. Updated: %@. %@ Separate from per-chat estimated credits.", self.accountUsage[@"updated_at"] ?: @"unavailable", refresh];
     for (CGFloat size = 13; size >= 10; size -= 0.5) {
         title.font = [NSFont systemFontOfSize:size weight:NSFontWeightSemibold];
         if ([heading sizeWithAttributes:@{NSFontAttributeName:title.font}].width <= title.frame.size.width) break;
