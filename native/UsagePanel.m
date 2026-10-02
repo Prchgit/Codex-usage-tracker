@@ -40,7 +40,10 @@ static NSString *AccountUsageText(NSDictionary *snapshot) {
 @property UsagePanel *panel;
 @property NSStatusItem *item;
 @property NSTimer *timer;
-@property BOOL pending, manuallyHidden;
+@property BOOL pending, manuallyHidden, collapsed;
+@property NSArray *lastSessions;
+@property NSString *lastMessage;
+@property NSPoint savedScroll;
 @property NSMutableDictionary *chatNumbers;
 @property NSString *lastSignature;
 @property NSURL *dashboardURL;
@@ -122,6 +125,10 @@ static NSString *AccountUsageText(NSDictionary *snapshot) {
     self.manuallyHidden = YES;
     [self syncVisibility:nil];
 }
+- (void)toggleCollapsed:(id)sender {
+    self.collapsed = !self.collapsed;
+    [self render:self.lastSessions ?: @[] message:self.lastMessage];
+}
 - (void)openHistory:(id)sender { [NSWorkspace.sharedWorkspace openURL:self.dashboardURL]; }
 - (void)quit:(id)sender { [NSApp terminate:nil]; }
 - (NSString *)number:(id)value {
@@ -141,12 +148,15 @@ static NSString *AccountUsageText(NSDictionary *snapshot) {
     return footer;
 }
 - (void)render:(NSArray *)sessions message:(NSString *)message {
-    NSPoint previousScroll = NSZeroPoint;
+    self.lastSessions = sessions;
+    self.lastMessage = message;
+    NSPoint previousScroll = self.savedScroll;
     for (NSView *child in self.panel.contentView.subviews) {
         if ([child isKindOfClass:NSScrollView.class]) previousScroll = ((NSScrollView *)child).documentVisibleRect.origin;
     }
+    self.savedScroll = previousScroll;
     NSRect screen = (self.panel.screen ?: NSScreen.mainScreen).visibleFrame;
-    CGFloat height = MIN(HeaderHeight + MAX(1, sessions.count)*SessionRowHeight, MAX(132, screen.size.height-80));
+    CGFloat height = self.collapsed ? HeaderHeight : MIN(HeaderHeight + MAX(1, sessions.count)*SessionRowHeight, MAX(132, screen.size.height-80));
     NSRect frame = self.panel.frame;
     frame.origin.y += frame.size.height-height; frame.size.height = height;
     frame.origin.y = MAX(NSMinY(screen), MIN(frame.origin.y, NSMaxY(screen)-height));
@@ -156,7 +166,7 @@ static NSString *AccountUsageText(NSDictionary *snapshot) {
     view.state = NSVisualEffectStateActive; view.wantsLayer = YES; view.layer.cornerRadius = 16;
     self.panel.contentView = view;
     NSString *heading = [@"Codex Usage Tracker · " stringByAppendingString:AccountUsageText(self.accountUsage)];
-    NSTextField *title = [self label:13 weight:NSFontWeightSemibold color:NSColor.labelColor frame:NSMakeRect(18,height-33,270,18) view:view];
+    NSTextField *title = [self label:13 weight:NSFontWeightSemibold color:NSColor.labelColor frame:NSMakeRect(18,height-33,252,18) view:view];
     title.stringValue = heading;
     NSString *refresh = [self.accountUsage[@"auto_refresh"] boolValue]
         ? [NSString stringWithFormat:@"Automatic refresh every %@ seconds.", self.accountUsage[@"refresh_interval_seconds"]]
@@ -166,8 +176,16 @@ static NSString *AccountUsageText(NSDictionary *snapshot) {
         title.font = [NSFont systemFontOfSize:size weight:NSFontWeightSemibold];
         if ([heading sizeWithAttributes:@{NSFontAttributeName:title.font}].width <= title.frame.size.width) break;
     }
+    NSButton *minimize = [NSButton buttonWithTitle:self.collapsed ? @"＋" : @"−" target:self action:@selector(toggleCollapsed:)];
+    minimize.bordered = NO;
+    minimize.frame = NSMakeRect(273,height-36,25,25);
+    minimize.toolTip = self.collapsed ? @"Expand usage panel" : @"Minimize to header";
+    [minimize setAccessibilityLabel:minimize.toolTip];
+    [view addSubview:minimize];
+    [title addGestureRecognizer:[[NSClickGestureRecognizer alloc] initWithTarget:self action:@selector(openHistory:)]];
     NSButton *hide = [NSButton buttonWithTitle:@"×" target:self action:@selector(toggle:)];
     hide.bordered = NO; hide.frame = NSMakeRect(299,height-36,28,25); [view addSubview:hide];
+    if (self.collapsed) return;
     NSScrollView *scroll = [[NSScrollView alloc] initWithFrame:NSMakeRect(0,8,PanelWidth,height-HeaderHeight)];
     scroll.drawsBackground = NO; scroll.hasVerticalScroller = YES; scroll.autohidesScrollers = YES;
     FlippedView *list = [[FlippedView alloc] initWithFrame:NSMakeRect(0,0,324,MAX(1,sessions.count)*SessionRowHeight)];
@@ -214,7 +232,7 @@ static NSString *AccountUsageText(NSDictionary *snapshot) {
         [logRows addObject:[NSString stringWithFormat:@"%@; %@; %@; %@",name,state,tokens,footer]];
     }
     [list scrollPoint:previousScroll];
-    [view addGestureRecognizer:[[NSClickGestureRecognizer alloc] initWithTarget:self action:@selector(openHistory:)]];
+    [list addGestureRecognizer:[[NSClickGestureRecognizer alloc] initWithTarget:self action:@selector(openHistory:)]];
     NSString *signature = [NSString stringWithFormat:@"%@|%@",heading,message ?: [logRows componentsJoinedByString:@" | "]];
     if (![signature isEqual:self.lastSignature]) {
         self.lastSignature = signature;
@@ -260,7 +278,24 @@ int main(int argc, const char *argv[]) {
             NSCAssert([AccountUsageText(@{@"limits": @[@{@"limit_id": @"codex", @"used_percent": @29}]}) isEqual:@"29% used"], @"Account usage percentage");
             NSCAssert([AccountUsageText(@{@"stale": @YES, @"limits": @[@{@"limit_id": @"codex", @"used_percent": @29}]}) isEqual:@"29% used (stale)"], @"Old readings must be marked stale");
             NSCAssert([AccountUsageText(nil) isEqual:@"Usage unavailable"], @"Missing usage is not zero");
-            puts("Foreground visibility and account usage checks passed"); return 0;
+            [NSApplication sharedApplication];
+            App *test = [App new];
+            test.panel = [[UsagePanel alloc] initWithContentRect:NSMakeRect(100,100,PanelWidth,154)
+                styleMask:NSWindowStyleMaskBorderless backing:NSBackingStoreBuffered defer:NO];
+            test.chatNumbers = [NSMutableDictionary new];
+            [test render:@[] message:@"Test empty state"];
+            CGFloat expandedHeight = test.panel.frame.size.height;
+            CGFloat top = NSMaxY(test.panel.frame);
+            [test toggleCollapsed:nil];
+            NSCAssert(test.panel.frame.size.height == HeaderHeight, @"Minimized panel shows only header");
+            NSCAssert(fabs(NSMaxY(test.panel.frame)-top) < 1, @"Minimizing keeps header position");
+            for (NSView *child in test.panel.contentView.subviews)
+                NSCAssert(![child isKindOfClass:NSScrollView.class], @"Minimized panel hides session rows");
+            [test render:@[] message:@"Refreshed empty state"];
+            NSCAssert(test.panel.frame.size.height == HeaderHeight, @"Refresh preserves minimized state");
+            [test toggleCollapsed:nil];
+            NSCAssert(test.panel.frame.size.height == expandedHeight, @"Expanding restores session area");
+            puts("Foreground visibility, account usage, and minimize checks passed"); return 0;
         }
         NSApplication *app = NSApplication.sharedApplication;
         App *delegate = [App new]; app.delegate = delegate; [app run];
