@@ -37,7 +37,7 @@ Install the read-only local plugin from this checkout:
 python3 scripts/install_plugin.py
 ```
 
-The plugin requires the Codex CLI and Python 3.10+ in addition to the base collector's prerequisites. If your default Python is older, use `--python /path/to/python3.12`. The installer creates an isolated MCP environment, prepares a private local marketplace, and installs **Codex Usage Tracker** through the Codex CLI. It starts the collector first if this is a fresh installation. For a custom runtime, supply `--runtime`; for a custom Codex profile, supply `--codex-home`. It does not enable submission hooks or request-execution tools.
+The standalone plugin requires macOS, the Codex CLI, and Python 3.10+. It does not require the original collector installation, floating app, or Apple compiler tools. If your default Python is older, use `--python /path/to/python3.12`. The installer creates an isolated MCP environment, prepares a private local marketplace, and installs **Codex Usage Tracker** through the Codex CLI. It installs its own collector and UI assets under `~/.local/share/codex-usage-tracker`, with a separate LaunchAgent (`com.local.codex-usage-tracker-plugin`) and default port 8768. Use `--port` to choose another port. Removing the original installation does not stop this collector or remove these files. On migration from the earlier shared-runtime plugin, recorded usage is copied with SQLite backup and plugin registration is moved to the independent runtime; the original collector is retained. For a custom runtime, supply `--runtime`; for a custom Codex profile, supply `--codex-home`. It does not enable submission hooks or request-execution tools.
 
 Open a new Codex chat after installation (restart the desktop app if the plugin does not appear). Example requests:
 
@@ -147,3 +147,7 @@ In a new Codex chat, ask “Show my inline Codex Usage Tracker panel.” The `sh
 ### Fixed compact Codex Usage Tracker view
 
 Ask “Open my compact Codex Usage Tracker panel on the right.” The usage skill opens the collector’s `/panel` URL in Codex’s right-side browser panel. It reuses the inline card UI with five-second local refresh, account window labels, active-chat token and credit rows, and remembered collapse state. The panel stays beside the chat as the conversation scrolls. The full dashboard remains at `/`.
+
+### Standalone plugin removal
+
+Run `python3 scripts/uninstall.py --plugin` (add `--dry-run` to preview). This removes the independent collector and plugin while retaining its usage database and logs. `python3 scripts/uninstall.py` continues to target the original macOS installation. The standalone compact panel normally runs at `http://127.0.0.1:8768/panel`; the installer prints the actual URL.

@@ -7,6 +7,11 @@ import subprocess
 PLUGIN_NAME = 'codex-usage-tracker'
 MARKETPLACE_NAME = 'codex-usage-tracker-local'
 PLUGIN_ID = PLUGIN_NAME + '@' + MARKETPLACE_NAME
+PLUGIN_COLLECTOR_LABEL = 'com.local.codex-usage-tracker-plugin'
+PLUGIN_PORT = 8768
+
+def plugin_runtime_directory():
+    return Path(os.environ.get('CODEX_USAGE_TRACKER_PLUGIN_RUNTIME_DIR') or Path.home() / '.local/share/codex-usage-tracker').expanduser()
 
 
 def plugin_uninstall_plan(runtime, codex_home, command):

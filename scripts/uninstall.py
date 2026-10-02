@@ -8,7 +8,7 @@ import shutil
 import subprocess
 
 from install_common import read_plist
-from plugin_common import plugin_uninstall_plan, uninstall_plugin
+from plugin_common import plugin_uninstall_plan, uninstall_plugin, plugin_runtime_directory, PLUGIN_COLLECTOR_LABEL
 from install_monitor import LABEL as COLLECTOR_LABEL
 from install_floating import LABEL as PANEL_LABEL, APP_NAME, BINARY_NAME
 from token_budget_mcp.config import runtime_directory
@@ -37,12 +37,13 @@ def remove_hooks(config, runner, project=None):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--runtime', type=Path, default=runtime_directory())
+    parser.add_argument('--runtime', type=Path)
+    parser.add_argument('--plugin', action='store_true', help='Remove the independent plugin installation, retaining history')
     parser.add_argument('--codex-home', type=Path, default=Path(os.environ.get('CODEX_HOME') or Path.home() / '.codex'))
     parser.add_argument('--codex-command', default=shutil.which('codex'))
     parser.add_argument('--dry-run', action='store_true', help='Show the uninstall plan without changing anything')
     args = parser.parse_args(argv)
-    runtime = args.runtime.expanduser().resolve()
+    runtime = (args.runtime or (plugin_runtime_directory() if args.plugin else runtime_directory())).expanduser().resolve()
     codex_home = args.codex_home.expanduser().resolve()
     manifest = runtime / 'installation.json'
     installation = json.loads(manifest.read_text()) if manifest.exists() else {}
@@ -50,7 +51,12 @@ def main(argv=None):
     runner = runtime / 'run_monitor.py'
     binary = runtime / APP_NAME / 'Contents/MacOS' / BINARY_NAME
     agents = []
-    for label in (PANEL_LABEL, COLLECTOR_LABEL):
+    if args.plugin and installation and installation.get('mode') != 'standalone-plugin':
+        raise ValueError('This runtime is not an independent plugin installation')
+    standalone = args.plugin or installation.get('mode') == 'standalone-plugin'
+    if standalone and installation and installation.get('collector_label') != PLUGIN_COLLECTOR_LABEL:
+        raise ValueError('Unrecognized standalone collector label; not removed')
+    for label in ((PLUGIN_COLLECTOR_LABEL,) if standalone else (PANEL_LABEL, COLLECTOR_LABEL)):
         path = Path.home() / 'Library/LaunchAgents' / (label + '.plist')
         existing = read_plist(path)
         if existing:
@@ -65,7 +71,7 @@ def main(argv=None):
         config = remove_hooks(json.loads(original), runner, project)
         if config != json.loads(original): hooks = json.dumps(config, indent=2) + '\n'
     mcp = False
-    if args.codex_command or installation.get('mcp_requested'):
+    if not standalone and (args.codex_command or installation.get('mcp_requested')):
         if not args.codex_command: raise ValueError('Codex CLI is needed to remove the optional MCP registration')
         result = subprocess.run([args.codex_command, 'mcp', 'get', 'codex-usage-tracker', '--json'],
             capture_output=True, text=True, env={**os.environ, 'CODEX_HOME': str(codex_home)})

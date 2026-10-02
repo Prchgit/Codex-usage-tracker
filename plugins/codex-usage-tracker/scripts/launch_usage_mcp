@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import sys
 
-runtime = Path(os.environ.get('CODEX_USAGE_TRACKER_RUNTIME_DIR') or Path.home() / '.local/share/codex-token-monitor').expanduser()
+runtime = Path(os.environ.get('CODEX_USAGE_TRACKER_RUNTIME_DIR') or Path.home() / '.local/share/codex-usage-tracker').expanduser()
 python = Path(os.environ.get('CODEX_USAGE_TRACKER_MCP_PYTHON') or runtime / 'mcp-venv/bin/python').expanduser()
 runner = runtime / 'run_usage_mcp.py'
 if not python.is_file() or not runner.is_file():

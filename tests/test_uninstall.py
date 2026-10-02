@@ -36,6 +36,33 @@ class UninstallTests(unittest.TestCase):
     def tearDown(self):
         self.command_patch.stop(); self.home_patch.stop(); self.print_patch.stop(); self.temp.cleanup()
 
+    def test_standalone_uninstall_preserves_original_service_and_history(self):
+        (self.runtime / 'installation.json').write_text(json.dumps({'mode':'standalone-plugin','collector_label':uninstall.PLUGIN_COLLECTOR_LABEL}))
+        independent = self.plist.with_name(uninstall.PLUGIN_COLLECTOR_LABEL+'.plist')
+        independent.write_bytes(self.plist.read_bytes())
+        with patch('uninstall.subprocess.run',return_value=subprocess.CompletedProcess([],0)) as run:
+            uninstall.main(self.args)
+        self.assertTrue(self.plist.exists())
+        self.assertFalse(independent.exists())
+        self.assertTrue(self.database.exists())
+        self.assertEqual(run.call_count,1)
+        self.assertIn(str(independent),run.call_args.args[0])
+
+    def test_original_uninstall_preserves_independent_installation(self):
+        separate = self.home / 'independent'
+        separate.mkdir()
+        program = separate / 'run_monitor.py'
+        program.write_text('independent program')
+        marker = separate / 'plugin-installation.json'
+        marker.write_text('independent registration')
+        agent = self.plist.with_name(uninstall.PLUGIN_COLLECTOR_LABEL+'.plist')
+        agent.write_bytes(plistlib.dumps({'ProgramArguments':['python',str(program)]}))
+        with patch('uninstall.subprocess.run',return_value=subprocess.CompletedProcess([],0)):
+            uninstall.main(self.args)
+        self.assertTrue(agent.exists())
+        self.assertTrue(program.exists())
+        self.assertTrue(marker.exists())
+
     def test_default_uninstall_stops_services_preserves_history_and_is_repeatable(self):
         with patch('uninstall.subprocess.run', return_value=subprocess.CompletedProcess([],0)) as run:
             uninstall.main(self.args)

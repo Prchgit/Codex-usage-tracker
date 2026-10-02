@@ -1,5 +1,6 @@
 """Install reversible user-level watcher and hooks. Does not alter hook trust."""
 import json
+import re
 from pathlib import Path
 import shlex
 import shutil
@@ -44,6 +45,7 @@ def configure_hooks(config, command, project=PROJECT):
 def main(argv=None):
     parser = install_arguments(__doc__)
     parser.add_argument('--python', type=Path, default=Path('/usr/bin/python3'))
+    parser.add_argument('--label', default=LABEL, help='LaunchAgent identity for an independent collector')
     parser.add_argument('--codex-home', type=Path, default=Path.home() / '.codex')
     parser.add_argument('--inactivity-seconds', type=float, default=DEFAULT_INACTIVITY_SECONDS)
     parser.add_argument('--codex-command', default=shutil.which('codex'))
@@ -58,12 +60,15 @@ def main(argv=None):
         parse_since(args.since)
     except ValueError as error: parser.error(str(error))
     if not args.python.is_file(): raise ValueError('Python executable does not exist')
+    if not re.fullmatch(r'[A-Za-z0-9.-]+', args.label): raise ValueError('Invalid launch-agent label')
     runtime = args.runtime
-    plist = Path.home() / 'Library/LaunchAgents' / (LABEL + '.plist')
+    plist = Path.home() / 'Library/LaunchAgents' / (args.label + '.plist')
     existing = read_plist(plist)
     # Check conflicts and parse hooks before writing runtime files or configuration.
     if existing and existing.get('WorkingDirectory') not in (str(PROJECT), str(runtime)):
         raise ValueError('An unrelated launch agent already uses this label')
+    if existing and args.label != LABEL and str(runtime / 'run_monitor.py') not in existing.get('ProgramArguments', []):
+        raise ValueError('An unrelated collector already uses this label')
     hooks_path = args.codex_home / 'hooks.json'
     config = (json.loads(hooks_path.read_text()) if hooks_path.exists() else {'hooks': {}}) if args.with_hooks else None
     runner = runtime / 'run_monitor.py'
@@ -85,7 +90,7 @@ def main(argv=None):
         backup = hooks_path.with_name('hooks.before-token-monitor.json')
         if hooks_path.exists() and not backup.exists(): backup.write_bytes(hooks_path.read_bytes())
         hooks_path.write_text(json.dumps(config, indent=2) + '\n')
-    activate_agent(plist, {'Label': LABEL, 'ProgramArguments': common_args,
+    activate_agent(plist, {'Label': args.label, 'ProgramArguments': common_args,
         'WorkingDirectory': str(runtime), 'RunAtLoad': True, 'KeepAlive': True,
         'StandardOutPath': str(runtime / 'monitor.stdout.log'),
         'StandardErrorPath': str(runtime / 'monitor.stderr.log'), 'ThrottleInterval': LAUNCH_THROTTLE_SECONDS})

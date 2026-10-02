@@ -2,16 +2,47 @@
 import json
 from pathlib import Path
 import subprocess
+import sqlite3
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 sys.path.insert(0,str(Path(__file__).resolve().parents[1] / 'scripts'))
-from install_plugin import select_python, stage_plugin
-from plugin_common import plugin_uninstall_plan, uninstall_plugin, PLUGIN_ID, MARKETPLACE_NAME
+from install_plugin import select_python, stage_plugin, install_collector, register_plugin
+from plugin_common import plugin_uninstall_plan, uninstall_plugin, PLUGIN_ID, MARKETPLACE_NAME, PLUGIN_COLLECTOR_LABEL
 
 
 class PluginInstallTests(unittest.TestCase):
+    def test_failed_migration_restores_previous_registration(self):
+        failure = subprocess.CalledProcessError(1,['codex'])
+        restored = subprocess.CompletedProcess([],0)
+        with tempfile.TemporaryDirectory() as directory, patch('install_plugin.uninstall_plugin') as remove, patch('install_plugin.subprocess.run',side_effect=[failure,restored,restored,restored,restored]) as run:
+            runtime = Path(directory)
+            old = runtime / 'original'
+            with self.assertRaises(subprocess.CalledProcessError):
+                register_plugin(runtime,runtime / 'plugin-marketplace',runtime / 'codex','codex',(old,{}))
+            remove.assert_called_once()
+            self.assertIn(str(old / 'plugin-marketplace'),run.call_args_list[-2].args[0])
+            self.assertEqual(run.call_args_list[-1].args[0],['codex','plugin','add',PLUGIN_ID,'--json'])
+
+    def test_independent_collector_copies_history_and_installs_own_service(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            legacy, runtime = root / 'legacy', root / 'independent'
+            legacy.mkdir(); runtime.mkdir()
+            with sqlite3.connect(legacy / 'monitor.sqlite3') as db:
+                db.execute('CREATE TABLE example(value)'); db.execute('INSERT INTO example VALUES (42)')
+            response = MagicMock(); response.__enter__.return_value.status = 200
+            with patch('install_plugin.read_plist',return_value=None), patch('install_plugin.socket.socket'), patch('install_plugin.urlopen',return_value=response), patch('install_plugin.subprocess.run') as run:
+                install_collector(runtime,root / 'codex','codex',root / 'python',8768,legacy)
+            command = run.call_args.args[0]
+            self.assertIn('install_monitor.py', command[1])
+            self.assertEqual(command[command.index('--label')+1],PLUGIN_COLLECTOR_LABEL)
+            self.assertNotIn('--with-hooks',command)
+            self.assertEqual(json.loads((runtime / 'installation.json').read_text())['mode'],'standalone-plugin')
+            with sqlite3.connect(runtime / 'monitor.sqlite3') as db:
+                self.assertEqual(db.execute('SELECT value FROM example').fetchone()[0],42)
+
     def test_staged_package_carries_custom_runtime_and_executable_launcher(self):
         with tempfile.TemporaryDirectory() as directory:
             runtime = Path(directory).resolve()
