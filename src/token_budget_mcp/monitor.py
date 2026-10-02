@@ -1,5 +1,6 @@
 """Local Codex usage observer. No model calls and no prompt storage."""
 from contextlib import closing
+from collections import defaultdict
 import json
 import math
 import logging
@@ -7,7 +8,7 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from .usage import FIELDS, aggregate_chats, floating_sessions, session_display_name, summarize_calls
+from .usage import FIELDS, aggregate_chats, floating_sessions, session_display_name, summarize_calls, normalize_usage
 from .config import (DEFAULT_INACTIVITY_SECONDS, DEFAULT_HISTORY_LIMIT,
                      DEFAULT_DATABASE_TIMEOUT, STATE_DATABASE_TIMEOUT, positive_number)
 
@@ -29,10 +30,13 @@ class Monitor:
         if not isinstance(self.credit_rates.get('basis'), str):
             raise ValueError('Credit rates must describe their basis')
         self.lock = threading.RLock()
+        self.summary_cache = {}
+        self.summary_rates = None
         connection = Path(self.database).resolve().as_uri() + '?mode=ro' if readonly else self.database
         self.db = sqlite3.connect(connection, uri=readonly,
                                  check_same_thread=False, timeout=DEFAULT_DATABASE_TIMEOUT)
         if not readonly:
+            had_issues = self.db.execute("SELECT 1 FROM sqlite_master WHERE name='turn_issues'").fetchone() is not None
             self.db.execute('PRAGMA journal_mode=WAL')
             self.db.executescript('''
           CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY, offset INTEGER, inode INTEGER, state TEXT);
@@ -42,8 +46,21 @@ class Monitor:
           CREATE TABLE IF NOT EXISTS turn_owners(turn_id TEXT PRIMARY KEY, thread TEXT NOT NULL);
           CREATE TABLE IF NOT EXISTS turn_settings(turn_id TEXT PRIMARY KEY, reasoning_effort TEXT);
           CREATE TABLE IF NOT EXISTS activity(turn_id TEXT PRIMARY KEY, timestamp TEXT);
+          CREATE INDEX IF NOT EXISTS calls_turn_timestamp ON calls(turn_id, timestamp);
+          CREATE INDEX IF NOT EXISTS turns_thread_started ON turns(thread, started);
+          CREATE TABLE IF NOT EXISTS turn_issues(turn_id TEXT PRIMARY KEY, reason TEXT NOT NULL);
           CREATE TABLE IF NOT EXISTS diagnostics(path TEXT PRIMARY KEY, message TEXT);
             ''')
+            if not had_issues:
+                # Old versions retained diagnostics only per file. Conservatively mark
+                # its chat's turns rather than present already-skipped usage as complete.
+                for raw, in self.db.execute('SELECT files.state FROM files JOIN diagnostics ON files.path=diagnostics.path').fetchall():
+                    try: state = json.loads(raw)
+                    except (ValueError, TypeError): continue
+                    if not isinstance(state, dict): continue
+                    if isinstance(state.get('thread'), str):
+                        self.db.execute("INSERT OR IGNORE INTO turn_issues SELECT id, 'Legacy unsupported usage' FROM turns WHERE thread=?", (state['thread'],))
+                    else: self.mark_incomplete(state.get('turn'))
             self.db.commit()
 
     def close(self): self.db.close()
@@ -51,7 +68,8 @@ class Monitor:
     def turn(self, identifier, thread=None, model=None, started=None, status=None, preview=None):
         self.db.execute('''INSERT INTO turns VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
             thread=COALESCE(excluded.thread,turns.thread),model=COALESCE(excluded.model,turns.model),
-            started=COALESCE(turns.started,excluded.started), status=COALESCE(excluded.status,turns.status),
+            started=COALESCE(turns.started,excluded.started), status=CASE WHEN turns.status IN ('completed','interrupted')
+                THEN turns.status ELSE COALESCE(excluded.status,turns.status) END,
             preview=COALESCE(excluded.preview,turns.preview)''',
             (identifier,thread,model,started,status,json.dumps(preview) if preview else None))
 
@@ -100,12 +118,21 @@ class Monitor:
         if identifier and stamp:
             self.db.execute('INSERT INTO activity VALUES (?,?) ON CONFLICT(turn_id) DO UPDATE SET timestamp=MAX(activity.timestamp,excluded.timestamp)', (identifier, stamp))
 
+    def mark_incomplete(self, identifier):
+        if isinstance(identifier, str) and identifier:
+            self.db.execute('INSERT OR IGNORE INTO turn_issues VALUES (?,?)',
+                (identifier, 'Unsupported usage record'))
+
     def accept(self, row, state):
         if not isinstance(row, dict): raise ValueError("Log record must be an object")
         payload=row.get('payload') or {}
         if not isinstance(payload,dict): return
         kind=payload.get('type',row.get('type'))
         stamp=row.get('timestamp')
+        for value in (stamp, payload.get('id'), payload.get('turn_id'), payload.get('root_turn_id'), payload.get('thread_id'), payload.get('model')):
+            if value is not None and not isinstance(value, str):
+                self.mark_incomplete(state.get('turn'))
+                raise ValueError('Log identifiers, model and timestamp must be text')
         if row.get('type')=='session_meta': state['thread']=payload.get('id')
         if kind in ('task_started','turn_context'):
             identifier=payload.get('turn_id')
@@ -121,13 +148,19 @@ class Monitor:
             identifier=payload.get('root_turn_id') or payload.get('turn_id')
             response=payload.get('response_id')
             usage=payload.get('usage')
-            if not identifier or not response or not isinstance(usage,dict):
-                state['unsupported_usage']=True
+            if not isinstance(identifier, str) or not identifier or not isinstance(response, str) or not response:
+                state['unsupported_usage'] = True
+                self.mark_incomplete(identifier or state.get('turn'))
                 return
-            if not all(type(usage.get(k)) is int and usage[k]>=0 for k in ('input_tokens','output_tokens')):
-                state['unsupported_usage']=True
+            try:
+                clean, invalid = normalize_usage(usage)
+            except ValueError:
+                state['unsupported_usage'] = True
+                self.mark_incomplete(identifier)
                 return
-            clean={k:usage.get(k) for k in FIELDS}
+            if invalid:
+                state['unsupported_usage'] = True
+                self.mark_incomplete(identifier)
             is_child=payload.get('turn_id') != identifier
             owner=self.parent_owner(identifier,None if is_child else payload.get('thread_id') or state.get('thread'))
             self.turn(identifier,owner,None,None if is_child else stamp)
@@ -163,6 +196,7 @@ class Monitor:
                                 stream.seek(position); break
                             try: self.accept(json.loads(line),state)
                             except (ValueError,TypeError,KeyError):
+                                self.mark_incomplete(state.get('turn'))
                                 self.db.execute('INSERT OR REPLACE INTO diagnostics VALUES (?,?)',
                                     (str(path),'Unsupported record encountered; completeness may be affected.'))
                         offset=stream.tell()
@@ -186,7 +220,8 @@ class Monitor:
         with self.lock:
             row=self.db.execute('SELECT usage FROM calls WHERE turn_id IN (SELECT id FROM turns WHERE thread=?) ORDER BY timestamp DESC LIMIT 1',
                                 (event.get('session_id'),)).fetchone()
-            previous=json.loads(row[0])['input_tokens'] if row else None
+            try: previous = normalize_usage(json.loads(row[0]))[0]['input_tokens'] if row else None
+            except (ValueError, TypeError): previous = None
             simple=any(word in prompt.lower() for word in ('extract','classify','rewrite','translate','summarize'))
             preview={'prompt_tokens_estimate':n,'estimated_next_input_tokens':previous+n if previous else None,
                 'basis':'UTF-8 length heuristic plus previous observed input; not full request count',
@@ -228,21 +263,41 @@ class Monitor:
         with self.lock:
             rows=self.db.execute('SELECT id,thread,model,started,status,preview FROM turns ORDER BY started DESC').fetchall()
             names = self.chat_names({row[1] for row in rows})
+            # Batch reads avoid a table scan and several SQL round trips per turn.
+            calls_by_turn = defaultdict(list)
+            last_calls = {}
+            for turn, model, usage, stamp in self.db.execute('SELECT turn_id,model,usage,timestamp FROM calls'):
+                calls_by_turn[turn].append((model, usage))
+                if stamp: last_calls[turn] = max(last_calls.get(turn, stamp), stamp)
+            def optional_rows(query):
+                try: return self.db.execute(query).fetchall()
+                except sqlite3.OperationalError: return []  # Older read-only databases.
+            settings = dict(optional_rows('SELECT turn_id,reasoning_effort FROM turn_settings'))
+            activities = dict(optional_rows('SELECT turn_id,timestamp FROM activity'))
+            issues = dict(optional_rows('SELECT turn_id,reason FROM turn_issues'))
+            rates = json.dumps([self.credit_rates, self.prices], sort_keys=True)
+            if rates != self.summary_rates:
+                self.summary_cache.clear()
+                self.summary_rates = rates
             reports=[]
             latest_threads=set()
             for identifier,thread,model,started,status,preview in rows:
-                try:
-                    setting=self.db.execute('SELECT reasoning_effort FROM turn_settings WHERE turn_id=?',(identifier,)).fetchone()
-                except sqlite3.OperationalError: setting=None
-                effort=setting[0] if setting else names.get(thread,{}).get('reasoning_effort') if thread not in latest_threads else None
+                effort = settings.get(identifier)
+                if identifier not in settings and thread not in latest_threads:
+                    effort = names.get(thread, {}).get('reasoning_effort')
                 latest_threads.add(thread)
-                calls=self.db.execute('SELECT model,usage FROM calls WHERE turn_id=?',(identifier,)).fetchall()
-                summary = summarize_calls(calls, self.credit_rates, self.prices)
-                try:
-                    activity = self.db.execute('SELECT timestamp FROM activity WHERE turn_id=?', (identifier,)).fetchone()
-                except sqlite3.OperationalError: activity = None  # Older read-only database.
-                last_call = self.db.execute('SELECT MAX(timestamp) FROM calls WHERE turn_id=?', (identifier,)).fetchone()[0]
-                last_activity = max(filter(None, [started, last_call, activity[0] if activity else None]), default=None)
+                calls = calls_by_turn.get(identifier, [])
+                signature = tuple(calls)
+                cached = self.summary_cache.get(identifier)
+                if cached is None or cached[0] != signature:
+                    cached = (signature, summarize_calls(calls, self.credit_rates, self.prices))
+                    self.summary_cache[identifier] = cached
+                summary = dict(cached[1])
+                if identifier in issues:
+                    summary['usage_coverage_complete'] = False
+                    summary['estimated_credits'] = None
+                    summary['api_equivalent_cost_usd'] = None
+                last_activity = max(filter(None, [started, last_calls.get(identifier), activities.get(identifier)]), default=None)
                 reports.append({'chat_name':names.get(thread,{}).get('name'),'is_internal':names.get(thread,{}).get('internal',False),'last_activity_at':last_activity,'turn_id':identifier,'thread_id':thread,'model':model,'reasoning_effort':effort,'started':started,'status':status,
                     'preview':json.loads(preview) if preview else None,'model_calls':len(calls),
                     **summary, 'usage_basis':'codex_local_usage_records' if calls else 'unavailable',

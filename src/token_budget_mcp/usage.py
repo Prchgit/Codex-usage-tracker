@@ -7,6 +7,26 @@ from .config import DEFAULT_INACTIVITY_SECONDS, positive_number
 
 FIELDS = ('input_tokens','cached_input_tokens','cache_write_input_tokens','output_tokens','reasoning_output_tokens','total_tokens')
 
+
+def normalize_usage(usage):
+    """Keep valid counts; invalid optional fields become unknown, never guessed."""
+    if not isinstance(usage, dict) or not all(
+        type(usage.get(k)) is int and usage[k] >= 0 for k in ('input_tokens', 'output_tokens')
+    ):
+        raise ValueError('Usage requires nonnegative integer input and output counts')
+    clean = {}
+    invalid = False
+    for field in FIELDS:
+        value = usage.get(field)
+        valid = value is None or (type(value) is int and value >= 0)
+        if field == 'cached_input_tokens' and value is not None:
+            valid = valid and value <= usage['input_tokens']
+        if field == 'reasoning_output_tokens' and value is not None:
+            valid = valid and value <= usage['output_tokens']
+        clean[field] = value if valid else None
+        invalid |= not valid
+    return clean, invalid
+
 def session_display_name(title, origin, source):
     """Use explicit chat titles, then internal task metadata without reading prompts."""
     if isinstance(title,str) and title.strip(): return title
@@ -58,11 +78,12 @@ def aggregate_chats(turns):
     for turn in turns:
         key = turn.get('thread_id') or turn['turn_id']
         if key not in groups:
-            groups[key] = dict(turn, recorded_turns=0, missing_usage_turns=0, unknown_credit_calls=0,
+            groups[key] = dict(turn, recorded_turns=0, missing_usage_turns=0, unsupported_usage_turns=0, unknown_credit_calls=0,
                 model_calls=0, credits_pending=False, credit_priced_calls=0, settled_turns=0, pending_turns=0, usage={k:0 for k in (*FIELDS,'new_input_tokens')},
                 estimated_credits=None, known_estimated_credits=Decimal(0), consumption_scope='Live tokens across recorded turns; credits across completed/interrupted turns only')
         chat = groups[key]
         chat['recorded_turns'] += 1
+        chat['unsupported_usage_turns'] += int(not turn.get('usage_coverage_complete', True))
         chat['model_calls'] += turn['model_calls']
         if turn.get('status') in ('completed','interrupted'):
             chat['settled_turns'] += 1
@@ -81,7 +102,7 @@ def aggregate_chats(turns):
         chat['last_activity_at'] = max(stamps, default=None)
         chat['first_recorded_at'] = min(filter(None, [chat.get('first_recorded_at'),turn.get('started')]), default=None)
     for chat in groups.values():
-        chat['credit_coverage_complete'] = not (chat['missing_usage_turns'] or chat['unknown_credit_calls'])
+        chat['credit_coverage_complete'] = not (chat['missing_usage_turns'] or chat['unknown_credit_calls'] or chat['unsupported_usage_turns'])
         chat['known_estimated_credits'] = str(chat['known_estimated_credits'])
         if chat['credit_coverage_complete']: chat['estimated_credits'] = chat['known_estimated_credits']
         if not chat['model_calls']: chat['usage'] = None
@@ -92,8 +113,16 @@ def summarize_calls(calls, credit_rates, prices):
     totals = {field: 0 for field in FIELDS}
     missing = set()
     credits, amounts = [], []
+    valid_calls = 0
+    malformed_calls = 0
     for model, raw in calls:
-        usage = json.loads(raw)
+        try:
+            usage, invalid = normalize_usage(json.loads(raw))
+        except (ValueError, TypeError):
+            malformed_calls += 1
+            continue
+        valid_calls += 1
+        malformed_calls += int(invalid)
         for field in FIELDS:
             value = usage.get(field)
             if value is None: missing.add(field)
@@ -112,9 +141,11 @@ def summarize_calls(calls, credit_rates, prices):
         if type(cached) is int and totals['input_tokens'] is not None and 0 <= cached <= totals['input_tokens'] else None)
     known_credits = str(sum(map(Decimal, credits)))
     return {
-        'usage': totals if calls else None,
+        'usage': totals if valid_calls else None,
+        'usage_coverage_complete': malformed_calls == 0,
+        'malformed_calls': malformed_calls,
         'known_estimated_credits': known_credits,
         'unknown_credit_calls': len(calls) - len(credits),
-        'estimated_credits': known_credits if calls and len(credits) == len(calls) else None,
-        'api_equivalent_cost_usd': str(sum(map(Decimal, amounts))) if calls and len(amounts) == len(calls) else None,
+        'estimated_credits': known_credits if calls and not malformed_calls and len(credits) == len(calls) else None,
+        'api_equivalent_cost_usd': str(sum(map(Decimal, amounts))) if calls and not malformed_calls and len(amounts) == len(calls) else None,
     }

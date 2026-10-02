@@ -17,6 +17,14 @@ def percentage(value):
     return max(0, min(100, value))
 
 
+def window_label(minutes, fallback):
+    if type(minutes) is not int or minutes <= 0: return fallback
+    if minutes == 10080: return 'Weekly'
+    if minutes % 1440 == 0: return f'{minutes // 1440}d'
+    if minutes % 60 == 0: return f'{minutes // 60}h'
+    return f'{minutes}m'
+
+
 def normalize_limits(payload, now=None, source=SOURCE, refresh_interval_seconds=None):
     if not isinstance(payload, dict): raise ValueError('Usage limits response must be an object')
     by_id = payload.get('rateLimitsByLimitId')
@@ -36,7 +44,7 @@ def normalize_limits(payload, now=None, source=SOURCE, refresh_interval_seconds=
             if not isinstance(window, dict): continue
             used = percentage(window.get('usedPercent'))
             if used is not None:
-                limits.append({'limit_id': identifier, 'label': name.capitalize(), 'used_percent': used,
+                limits.append({'limit_id': identifier, 'label': window_label(window.get('windowDurationMins'), name.capitalize()), 'used_percent': used,
                     'window_duration_mins': window.get('windowDurationMins'), 'resets_at': window.get('resetsAt')})
     stamp = now or datetime.now(timezone.utc)
     if refresh_interval_seconds is not None: positive_number(refresh_interval_seconds, 'refresh_interval_seconds')

@@ -48,6 +48,9 @@ const script = html.match(/<script>([\s\S]*?)<\/script>/)[1].replace('__POLL_INT
   assert.equal(document.getElementById('account-usage').textContent, '· 29% used');
   context.renderAccountUsage({limits: [{limit_id: 'codex', used_percent: 29}], stale: true});
   assert.equal(document.getElementById('account-usage').textContent, '· 29% used (stale)');
+  context.renderAccountUsage({limits: [{limit_id: 'codex', label: '5h', window_duration_mins: 300, used_percent: 40}, {limit_id: 'codex', label: 'Weekly', window_duration_mins: 10080, used_percent: 80}]});
+  assert.equal(document.getElementById('account-usage').textContent, '· 5h 40% · Weekly 80% used');
+  assert.equal(vm.runInContext("usageText({usage: {output_tokens: 10}, unsupported_usage_turns: 1}, 'output_tokens')", context), '10 (partial)');
   context.renderAccountUsage(null);
   assert.equal(document.getElementById('account-usage').textContent, 'Usage unavailable');
   const button = document.getElementById('summary').children[0].children[0].children[0];

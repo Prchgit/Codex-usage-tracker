@@ -24,6 +24,13 @@ class AccountUsageTests(unittest.TestCase):
             'secondary': {'usedPercent': 80, 'windowDurationMins': 10080}}}, self.now)
         self.assertEqual([limit['used_percent'] for limit in snapshot['limits']], [40, 80])
 
+    def test_duration_labels_and_unknown_duration_fallback(self):
+        snapshot = normalize_limits({'rateLimits': {'primary': {'usedPercent': 40, 'windowDurationMins': 300},
+            'secondary': {'usedPercent': 80, 'windowDurationMins': 10080}}}, self.now)
+        self.assertEqual([limit['label'] for limit in snapshot['limits']], ['5h', 'Weekly'])
+        snapshot = normalize_limits({'rateLimits': {'primary': {'usedPercent': 40, 'windowDurationMins': True}}}, self.now)
+        self.assertEqual(snapshot['limits'][0]['label'], 'Primary')
+
     def test_by_id_preferred_over_legacy(self):
         snapshot = normalize_limits({'rateLimits': {'primary': {'usedPercent': 99}},
             'rateLimitsByLimitId': {'codex': {'primary': {'usedPercent': 12}}}}, self.now)

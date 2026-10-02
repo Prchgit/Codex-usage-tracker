@@ -8,6 +8,8 @@ static NSString * const ShowTrackerNotification = @"com.local.codex-usage-panel.
 static const CGFloat PanelWidth = 340;
 static const CGFloat SessionRowHeight = 80;
 static const CGFloat HeaderHeight = 52;
+static NSString * const PanelPreferencesSuite = @"com.local.codex-usage-panel";
+static NSString * const CollapsedPreferenceKey = @"PanelCollapsed";
 static NSString * const DefaultDashboardURL = @"http://127.0.0.1:8767/";
 
 static NSString *AccountUsageText(NSDictionary *snapshot) {
@@ -20,7 +22,7 @@ static NSString *AccountUsageText(NSDictionary *snapshot) {
     NSMutableArray *parts = [NSMutableArray new];
     for (NSDictionary *limit in limits) {
         if (![limit isKindOfClass:NSDictionary.class] || ![limit[@"used_percent"] isKindOfClass:NSNumber.class]) continue;
-        NSString *label = limits.count > 1 && [limit[@"label"] isKindOfClass:NSString.class] ? [limit[@"label"] stringByAppendingString:@" "] : @"";
+        NSString *label = (limits.count > 1 || [limit[@"window_duration_mins"] doubleValue] > 0) && [limit[@"label"] isKindOfClass:NSString.class] ? [limit[@"label"] stringByAppendingString:@" "] : @"";
         [parts addObject:[NSString stringWithFormat:@"%@%.0f%%", label, [limit[@"used_percent"] doubleValue]]];
     }
     if (!parts.count) return @"Usage unavailable";
@@ -41,6 +43,7 @@ static NSString *AccountUsageText(NSDictionary *snapshot) {
 @property NSStatusItem *item;
 @property NSTimer *timer;
 @property BOOL pending, manuallyHidden, collapsed;
+@property NSUserDefaults *preferences;
 @property NSArray *lastSessions;
 @property NSString *lastMessage;
 @property NSPoint savedScroll;
@@ -69,6 +72,8 @@ static NSString *AccountUsageText(NSDictionary *snapshot) {
         url = [NSURL URLWithString:DefaultDashboardURL];
     }
     self.dashboardURL = url;
+    self.preferences = [[NSUserDefaults alloc] initWithSuiteName:PanelPreferencesSuite];
+    self.collapsed = [self.preferences boolForKey:CollapsedPreferenceKey];
     NSString *interval = environment[@"CUT_POLL_INTERVAL"];
     NSScanner *scanner = [NSScanner scannerWithString:interval ?: @""];
     double seconds;
@@ -127,6 +132,7 @@ static NSString *AccountUsageText(NSDictionary *snapshot) {
 }
 - (void)toggleCollapsed:(id)sender {
     self.collapsed = !self.collapsed;
+    [self.preferences setBool:self.collapsed forKey:CollapsedPreferenceKey];
     [self render:self.lastSessions ?: @[] message:self.lastMessage];
 }
 - (void)openHistory:(id)sender { [NSWorkspace.sharedWorkspace openURL:self.dashboardURL]; }
@@ -171,7 +177,7 @@ static NSString *AccountUsageText(NSDictionary *snapshot) {
     NSString *refresh = [self.accountUsage[@"auto_refresh"] boolValue]
         ? [NSString stringWithFormat:@"Automatic refresh every %@ seconds.", self.accountUsage[@"refresh_interval_seconds"]]
         : @"Manual snapshot; automatic refresh unavailable.";
-    title.toolTip = [NSString stringWithFormat:@"Account-wide Codex usage. Updated: %@. %@ Separate from per-chat estimated credits.", self.accountUsage[@"updated_at"] ?: @"unavailable", refresh];
+    title.toolTip = [NSString stringWithFormat:@"%@. Account-wide Codex usage. Updated: %@. %@ Separate from per-chat estimated credits.", heading, self.accountUsage[@"updated_at"] ?: @"unavailable", refresh];
     for (CGFloat size = 13; size >= 10; size -= 0.5) {
         title.font = [NSFont systemFontOfSize:size weight:NSFontWeightSemibold];
         if ([heading sizeWithAttributes:@{NSFontAttributeName:title.font}].width <= title.frame.size.width) break;
@@ -209,6 +215,7 @@ static NSString *AccountUsageText(NSDictionary *snapshot) {
         NSString *name = [turn[@"chat_name"] isKindOfClass:NSString.class] && [turn[@"chat_name"] length] ? turn[@"chat_name"] : [NSString stringWithFormat:@"Chat %@",self.chatNumbers[key]];
         NSString *state = [NSString stringWithFormat:@"%@ · %@ · %@ turns",model,status,[self number:turn[@"recorded_turns"]]];
         NSString *tokens = [NSString stringWithFormat:@"New %@ · Cache %@ · Out %@",[self number:usage[@"new_input_tokens"]],[self number:usage[@"cached_input_tokens"]],[self number:usage[@"output_tokens"]]];
+        if ([turn[@"unsupported_usage_turns"] integerValue] > 0) tokens = [tokens stringByAppendingString:@" · partial"];
         NSString *footer = [self creditText:turn];
         CGFloat y = index++*SessionRowHeight;
         CGFloat creditWidth = MIN(210, [footer sizeWithAttributes:@{NSFontAttributeName:[NSFont systemFontOfSize:11 weight:NSFontWeightMedium]}].width + 4);
@@ -278,16 +285,21 @@ int main(int argc, const char *argv[]) {
             NSCAssert([AccountUsageText(@{@"limits": @[@{@"limit_id": @"codex", @"used_percent": @29}]}) isEqual:@"29% used"], @"Account usage percentage");
             NSCAssert([AccountUsageText(@{@"stale": @YES, @"limits": @[@{@"limit_id": @"codex", @"used_percent": @29}]}) isEqual:@"29% used (stale)"], @"Old readings must be marked stale");
             NSCAssert([AccountUsageText(nil) isEqual:@"Usage unavailable"], @"Missing usage is not zero");
+            NSCAssert([AccountUsageText(@{@"limits": @[@{@"limit_id": @"codex", @"label": @"5h", @"window_duration_mins": @300, @"used_percent": @40}, @{@"limit_id": @"codex", @"label": @"Weekly", @"window_duration_mins": @10080, @"used_percent": @80}]}) isEqual:@"5h 40% · Weekly 80% used"], @"Usage labels identify their windows");
             [NSApplication sharedApplication];
             App *test = [App new];
             test.panel = [[UsagePanel alloc] initWithContentRect:NSMakeRect(100,100,PanelWidth,154)
                 styleMask:NSWindowStyleMaskBorderless backing:NSBackingStoreBuffered defer:NO];
+            NSString *testSuite = [@"com.local.codex-usage-panel.test." stringByAppendingString:NSUUID.UUID.UUIDString];
+            test.preferences = [[NSUserDefaults alloc] initWithSuiteName:testSuite];
             test.chatNumbers = [NSMutableDictionary new];
             [test render:@[] message:@"Test empty state"];
             CGFloat expandedHeight = test.panel.frame.size.height;
             CGFloat top = NSMaxY(test.panel.frame);
             [test toggleCollapsed:nil];
             NSCAssert(test.panel.frame.size.height == HeaderHeight, @"Minimized panel shows only header");
+            NSUserDefaults *restored = [[NSUserDefaults alloc] initWithSuiteName:testSuite];
+            NSCAssert([restored boolForKey:CollapsedPreferenceKey], @"Minimized state survives a new preferences instance");
             NSCAssert(fabs(NSMaxY(test.panel.frame)-top) < 1, @"Minimizing keeps header position");
             for (NSView *child in test.panel.contentView.subviews)
                 NSCAssert(![child isKindOfClass:NSScrollView.class], @"Minimized panel hides session rows");
@@ -295,6 +307,8 @@ int main(int argc, const char *argv[]) {
             NSCAssert(test.panel.frame.size.height == HeaderHeight, @"Refresh preserves minimized state");
             [test toggleCollapsed:nil];
             NSCAssert(test.panel.frame.size.height == expandedHeight, @"Expanding restores session area");
+            NSCAssert(![restored boolForKey:CollapsedPreferenceKey], @"Expanded state is persisted");
+            [test.preferences removePersistentDomainForName:testSuite];
             puts("Foreground visibility, account usage, and minimize checks passed"); return 0;
         }
         NSApplication *app = NSApplication.sharedApplication;

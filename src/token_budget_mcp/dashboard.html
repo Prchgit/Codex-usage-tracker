@@ -18,6 +18,7 @@ body{font:15px system-ui;background:#f5f7fb;color:#17243b;margin:35px auto;paddi
 <script>
 const fmt=x=>x==null?'Unavailable':Number(x).toLocaleString();
 const credit=t=>t.credits_pending?'Pending':t.estimated_credits!=null?'≈'+Number(t.estimated_credits).toLocaleString(undefined,{maximumFractionDigits:3}):(t.credit_priced_calls??(t.model_calls-t.unknown_credit_calls))>0?'≈'+Number(t.known_estimated_credits).toLocaleString(undefined,{maximumFractionDigits:3})+' (partial)':'Unavailable';
+const usageText=(row,field)=>fmt(row.usage?.[field]) + (row.unsupported_usage_turns || row.usage_coverage_complete === false ? ' (partial)' : '');
 const date=x=>x?new Date(x).toLocaleString():'Unavailable';
 function cells(body,values){const tr=document.createElement('tr');for(const value of values){const td=document.createElement('td');if(value instanceof Node)td.append(value);else td.textContent=value;tr.append(td)}body.append(tr)}
 const POLL_INTERVAL_MS = __POLL_INTERVAL_MS__;
@@ -28,7 +29,7 @@ function renderTotals(chats, report) {
  renderAccountUsage(report.account_usage);
  document.getElementById('chats').textContent = chats.length;
  document.getElementById('turns').textContent = fmt(chats.reduce((sum, chat) => sum + chat.recorded_turns, 0));
- const incompleteOutput = chats.some(chat => chat.missing_usage_turns || chat.usage?.output_tokens == null);
+ const incompleteOutput = chats.some(chat => chat.missing_usage_turns || chat.unsupported_usage_turns || chat.usage?.output_tokens == null);
  document.getElementById('output').textContent = fmt(chats.reduce((sum, chat) => sum + (chat.usage?.output_tokens || 0), 0)) + (incompleteOutput ? ' (partial)' : '');
  const credits = chats.reduce((sum, chat) => sum + Number(chat.known_estimated_credits || 0), 0);
  document.getElementById('credits').textContent = '≈' + credits.toLocaleString(undefined, {maximumFractionDigits: 3}) + (chats.some(chat => !chat.credit_coverage_complete) ? ' (partial)' : '');
@@ -41,9 +42,9 @@ function renderAccountUsage(snapshot) {
  const available = Array.isArray(snapshot?.limits) ? snapshot.limits : [];
  const codex = available.filter(limit => limit.limit_id === 'codex');
  const limits = (codex.length ? codex : available).filter(limit => Number.isFinite(limit.used_percent));
- const values = limits.map(limit => (limits.length > 1 ? limit.label + ' ' : '') + Math.round(limit.used_percent) + '%');
+ const values = limits.map(limit => (limits.length > 1 || limit.window_duration_mins > 0 ? limit.label + ' ' : '') + Math.round(limit.used_percent) + '%');
  label.textContent = values.length ? '· ' + values.join(' · ') + ' used' + (snapshot.stale ? ' (stale)' : '') : 'Usage unavailable';
- label.title = 'Account-wide Codex usage. Updated: ' + (snapshot?.updated_at || 'unavailable') + (snapshot?.auto_refresh ? '. Automatic refresh every ' + snapshot.refresh_interval_seconds + ' seconds.' : '. Manual snapshot; automatic refresh unavailable.') + ' Separate from per-chat credits.';
+ label.title = 'Account-wide Codex usage. Updated: ' + (snapshot?.updated_at || 'unavailable') + (snapshot?.auto_refresh ? '. Automatic refresh every ' + snapshot.refresh_interval_seconds + ' seconds.' : '. Manual snapshot; automatic refresh unavailable.') + ' Separate from per-chat credits.' + limits.map(limit => ' ' + (limit.label || 'Account') + ' resets: ' + (limit.resets_at ? new Date(limit.resets_at * 1000).toLocaleString() : 'unavailable') + '.').join('');
 }
 
 function renderChats(chats, select, selected) {
@@ -57,8 +58,8 @@ function renderChats(chats, select, selected) {
   const button = document.createElement('button');
   button.textContent = chat.chat_name || 'Unnamed chat';
   button.onclick = () => { select.value = chat.thread_id || ''; update(); };
-  button.title = chat.missing_usage_turns + ' unmeasured turns; ' + chat.unknown_credit_calls + ' unpriced calls';
-  cells(summary, [button, date(chat.first_recorded_at), date(chat.last_activity_at), chat.recorded_turns, chat.model_calls, fmt(chat.usage?.new_input_tokens), fmt(chat.usage?.cached_input_tokens), fmt(chat.usage?.output_tokens), credit(chat)]);
+  button.title = chat.missing_usage_turns + ' unmeasured turns; ' + chat.unknown_credit_calls + ' unpriced calls; ' + (chat.unsupported_usage_turns || 0) + ' turns with unsupported usage';
+  cells(summary, [button, date(chat.first_recorded_at), date(chat.last_activity_at), chat.recorded_turns, chat.model_calls, usageText(chat,'new_input_tokens'), usageText(chat,'cached_input_tokens'), usageText(chat,'output_tokens'), credit(chat)]);
  }
 }
 
@@ -67,7 +68,7 @@ function renderHistory(turns) {
  body.replaceChildren();
  for (const turn of turns) {
   const label = (turn.chat_name || 'Unnamed chat') + ' · ' + (turn.model || 'Unknown') + ' - ' + (turn.reasoning_effort || 'effort unavailable');
-  cells(body, [date(turn.started), label, turn.status || 'Unknown', turn.model_calls, fmt(turn.usage?.new_input_tokens), fmt(turn.usage?.cached_input_tokens), fmt(turn.usage?.output_tokens), credit(turn)]);
+  cells(body, [date(turn.started), label, turn.status || 'Unknown', turn.model_calls, usageText(turn,'new_input_tokens'), usageText(turn,'cached_input_tokens'), usageText(turn,'output_tokens'), credit(turn)]);
  }
 }
 

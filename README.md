@@ -27,7 +27,7 @@ From the cloned folder:
 python3 scripts/install.py
 ```
 
-The installer checks prerequisites, installs both components, handles an occupied dashboard port, and verifies the local API. The usual history address is `http://127.0.0.1:8767/`; the installer prints the actual address. If the panel is hidden, choose **◉ Tracker → Show / hide floating usage**.
+The installer checks prerequisites, installs both components, handles an occupied dashboard port, and verifies the local API. The usual history address is `http://127.0.0.1:8767/`; the installer prints the actual address. Use **−** to collapse the panel to its header and **＋** to expand it. This preference survives relaunches and login. If the panel is hidden, choose **◉ Tracker → Show / hide floating usage**.
 
 MCP is **off by default**. To let an assistant query collected usage through tools:
 
@@ -51,8 +51,8 @@ Review and trust these hooks in Codex before using them. Collection works withou
 - **Cache:** recorded cached input tokens.
 - **Out:** recorded output tokens. Reasoning tokens are a subset, not added twice.
 - **Credits:** cumulative estimates using the versioned Standard-speed rates in `credit_rates.json`. They update after a turn completes or is interrupted.
-- **Partial:** some locally observed calls or turns could not be measured or priced. Unknown model rates are never guessed.
-- **Overall % used:** account limits refresh automatically every 60 seconds through the signed-in Codex CLI. No model turn or API key is required. If the CLI or sign-in is unavailable, the last successful value remains visible and becomes stale after two minutes. See [account usage](docs/account-usage.md).
+- **Partial:** some locally observed calls or turns could not be measured or priced. Unknown model rates are never guessed. Malformed usage is isolated and affected totals are marked partial; valid recorded calls remain available. When upgrading older databases with file-level diagnostics, the affected chat history is conservatively marked partial because the original rejected records were not attributed to individual turns.
+- **Overall % used:** account limits refresh automatically every 60 seconds through the signed-in Codex CLI. No model turn or API key is required. Time windows are labeled by their duration, such as **5h** and **Weekly**, rather than Primary and Secondary; dashboard tooltips show reset times when available. If the CLI or sign-in is unavailable, the last successful value remains visible and becomes stale after two minutes. See [account usage](docs/account-usage.md).
 
 History shows the latest 100 turns, but per-chat totals include all persisted turns. One turn may include multiple model calls and steered messages. Collection depends on Codex's local log format; remote/cloud activity and sessions without compatible local records are not covered. Showing the panel in Work does not guarantee that every Work request is measured.
 
@@ -64,7 +64,7 @@ python3 scripts/install.py --help
 
 Use `--codex-home` for a custom Codex data location, `--runtime` for the tracker data directory, `--port` for a preferred port, `--poll-interval` for polling seconds, and `--since` for an ISO cutoff for previously unseen logs. `CODEX_HOME` and `CUT_RUNTIME_DIR` supply default paths. The installer retains existing history when run again.
 
-## Stop or update
+## Update or uninstall
 
 To update, pull the latest code and run the installer again, including any optional flags you want enabled:
 
@@ -73,14 +73,13 @@ git pull
 python3 scripts/install.py
 ```
 
-To stop the two services while retaining history:
+To uninstall the tracker while retaining usage history and diagnostic logs:
 
 ```sh
-launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.local.codex-usage-panel.plist"
-launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.local.codex-token-monitor.plist"
+python3 scripts/uninstall.py
 ```
 
-To prevent them returning at login, remove only those two CUT plist files. If you enabled MCP, remove its registration with `codex mcp remove codex-usage-tracker`. Optional hooks need removal from the relevant Codex hook configuration; preserve unrelated hooks. Runtime data is retained unless you explicitly delete it.
+Use `--dry-run` to preview the changes. For a custom installation, supply the same `--runtime` and `--codex-home` paths used during installation. The command stops and removes CUT's two LaunchAgents and installed program files, removes its owned hooks and optional MCP registration, and preserves unrelated configuration. Removing an optional MCP registration requires the Codex CLI. Usage databases and logs remain in the runtime directory for a later reinstall.
 
 ## Privacy and trial limitations
 
