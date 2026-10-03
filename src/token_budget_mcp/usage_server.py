@@ -7,7 +7,7 @@ from urllib.parse import urlencode, urlparse
 from urllib.request import urlopen
 from mcp.server.fastmcp import FastMCP
 from mcp.types import CallToolResult, TextContent, ToolAnnotations
-from .config import DEFAULT_PORT, runtime_directory
+from .config import DEFAULT_PORT, PANEL_HOSTNAME, runtime_directory
 
 MAX_REPORT_BYTES = 32 * 1024 * 1024
 REQUEST_TIMEOUT_SECONDS = 4
@@ -164,7 +164,8 @@ def build_server(reader):
         if thread_id is not None:
             reader.chat_usage(thread_id, 1)
             parameters['thread_id'] = thread_id
-        return result({'url':reader.url + '?' + urlencode(parameters),
+        display_url = reader.url.replace('127.0.0.1', PANEL_HOSTNAME).replace('://localhost', '://' + PANEL_HOSTNAME)
+        return result({'url':display_url + '?' + urlencode(parameters),
             'title':'Codex Usage Tracker','preferred_surface':'in-app browser panel',
             'local_only':True})
     return server

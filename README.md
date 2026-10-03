@@ -150,4 +150,6 @@ Ask “Open my compact Codex Usage Tracker panel on the right.” The usage skil
 
 ### Standalone plugin removal
 
-Run `python3 scripts/uninstall.py --plugin` (add `--dry-run` to preview). This removes the independent collector and plugin while retaining its usage database and logs. `python3 scripts/uninstall.py` continues to target the original macOS installation. The standalone compact panel normally runs at `http://127.0.0.1:8768/panel`; the installer prints the actual URL.
+Run `python3 scripts/uninstall.py --plugin` (add `--dry-run` to preview). This removes the independent collector and plugin while retaining its usage database and logs. `python3 scripts/uninstall.py` continues to target the original macOS installation. The standalone compact panel normally runs at `http://codex-usage-tracker.localhost:8768/panel`; the installer prints the actual URL.
+
+The named `.localhost` address resolves to loopback in supported browsers. It uses local HTTP and retains the port; no hosts-file edits, certificates, or public hosting are required. The numeric loopback URL remains available.

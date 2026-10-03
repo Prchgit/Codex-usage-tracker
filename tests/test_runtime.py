@@ -91,6 +91,7 @@ class RuntimeTests(unittest.TestCase):
         self.assertIn(b"location.pathname==='/panel'", page)
         monitor.reports.assert_not_called()
         self.assertIn('403', request(build_handler(monitor), '/panel', 'attacker.example')[0])
+        self.assertIn('200 OK', request(build_handler(monitor), '/panel', 'codex-usage-tracker.localhost:8768')[0])
 
     def test_scan_failure_retries_until_stop(self):
         stop = threading.Event()

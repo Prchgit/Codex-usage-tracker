@@ -51,6 +51,7 @@ async def main(launcher=None):
                 comparison = await session.call_tool('compare_chat_usage',{'thread_ids':['a','b']})
                 assert len(comparison.structuredContent['chats']) == 2
                 dashboard = await session.call_tool('get_usage_dashboard',{'thread_id':'a'})
+                assert dashboard.structuredContent['url'].startswith('http://codex-usage-tracker.localhost:')
                 assert 'embed=1' in dashboard.structuredContent['url'] and 'thread_id=a' in dashboard.structuredContent['url']
                 denied = await session.call_tool('execute_request',{})
                 assert denied.isError

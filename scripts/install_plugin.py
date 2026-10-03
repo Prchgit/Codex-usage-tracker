@@ -12,7 +12,7 @@ import sqlite3
 import time
 from urllib.request import urlopen
 from install_common import PROJECT
-from token_budget_mcp.config import runtime_directory
+from token_budget_mcp.config import runtime_directory, PANEL_HOSTNAME
 
 from plugin_common import PLUGIN_NAME, MARKETPLACE_NAME, PLUGIN_ID, PLUGIN_COLLECTOR_LABEL, PLUGIN_PORT, plugin_runtime_directory, plugin_uninstall_plan, uninstall_plugin
 from install_common import read_plist, activate_agent
@@ -157,7 +157,7 @@ def main(argv=None):
     (runtime / 'plugin-installation.json').write_text(json.dumps({'plugin_id':PLUGIN_ID,'marketplace':MARKETPLACE_NAME,
         'marketplace_root':str(root),'installed_path':info.get('installedPath')},indent=2) + '\n')
     if migration: (migration[0] / 'plugin-installation.json').unlink()
-    print(f'Independent compact panel: http://127.0.0.1:{args.port}/panel')
+    print(f'Independent compact panel: http://{PANEL_HOSTNAME}:{args.port}/panel')
     print('Codex Usage Tracker read-only plugin installed. Open a new Codex chat to discover the tools and usage skill.')
     print('Collector, UI assets and MCP dependencies are installed together. No original installation or floating app is required.')
 

@@ -7,12 +7,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from .config import DEFAULT_PORT, DEFAULT_POLL_INTERVAL, positive_number
-from .config import DEFAULT_ACCOUNT_REFRESH_INTERVAL
+from .config import DEFAULT_ACCOUNT_REFRESH_INTERVAL, PANEL_HOSTNAME
 from .account_refresh import find_codex, refresh_until_stopped
 
 logger = logging.getLogger(__name__)
 LOOPBACK_HOST = '127.0.0.1'
-ALLOWED_HOSTS = frozenset((LOOPBACK_HOST, 'localhost'))
+ALLOWED_HOSTS = frozenset((LOOPBACK_HOST, 'localhost', PANEL_HOSTNAME))
 
 
 def build_handler(monitor, page=None, poll_interval=DEFAULT_POLL_INTERVAL, panel_page=None):

@@ -5,6 +5,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 DEFAULT_PORT = 8767
+PANEL_HOSTNAME = 'codex-usage-tracker.localhost'
 DEFAULT_POLL_INTERVAL = 2.0
 DEFAULT_INACTIVITY_SECONDS = 120
 DEFAULT_HISTORY_LIMIT = 100
